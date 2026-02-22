@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset='utf-8'>
+    <meta http-equiv='X-UA-Compatible' content='IE=edge'>
+    <title>SignBridge — Text to Sign Language</title>
+    <meta name='viewport' content='width=device-width, initial-scale=1'>
+    <meta name="description"
+        content="Translate English text to Indian Sign Language (ISL) and American Sign Language (ASL) with 3D avatar animations.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"
+        integrity="sha256-/xUj+3OJU5yExlq6GSYGSHk7tPXikynS7ogEvDej/m4=" crossorigin="anonymous"></script>
+    <link rel='stylesheet' type='text/css' media='screen' href="{{url_for('static',filename='./style.css')}}">
+
+    <meta http-equiv="Access-Control-Allow-Methods" content="GET">
+    <link rel="stylesheet" href="{{url_for('static',filename='css/cwasa.css')}}">
+    <script type="text/javascript" src="{{url_for('static',filename='js/allcsa.js')}}"></script>
+
+    <script language="javascript">
+        var initCfg = {
+            "avsbsl": ["anna", "marc"],
+            "avSettings": { "avList": "avsbsl", "initAv": "marc" }
+        };
+        var sigmlList = null;
+        var tuavatarLoaded = false;
+        var playerAvailableToPlay = true;
+    </script>
+</head>
+
+<body onload="CWASA.init(initCfg);">
+    <script language="javascript">
+        function playText(stext) { CWASA.playSiGMLText(stext); }
+        function setSiGMLURL(sigmlURL) {
+            var loc = window.location.href;
+            var locDir = loc.substring(0, loc.lastIndexOf('/'));
+            sigmlURL = locDir + "/" + sigmlURL;
+            document.getElementById("URLText").value = sigmlURL;
+            return sigmlURL;
+        }
+        function startPlayer(sigmlURL) {
+            sigmlURL = setSiGMLURL(sigmlURL);
+            CWASA.getLogger("myLog", "warn");
+            CWASA.playSiGMLURL(sigmlURL);
+            CWASA.getLogger("myLog", "warn");
+        }
+    </script>
+
+    <div class="app-wrapper">
+        <!-- Header -->
+        <header class="app-header">
+            <div class="logo">
+                <span class="logo-icon">🤟</span>
+                <h1>SignBridge</h1>
+            </div>
+            <p class="subtitle">Translate text into sign language with 3D avatar animations</p>
+        </header>
+
+        <!-- Main Content -->
+        <main class="app-main">
+            <!-- Left Panel: Controls -->
+            <section class="controls-panel">
+                <!-- Language Toggle -->
+                <div class="language-selector">
+                    <label class="section-label">Language</label>
+                    <div class="toggle-track">
+                        <button id="btn-isl" class="lang-btn active" onclick="setLanguage('isl')">
+                            <span class="lang-flag">🇮🇳</span>
+                            <span class="lang-name">ISL</span>
+                        </button>
+                        <button id="btn-asl" class="lang-btn" onclick="setLanguage('asl')">
+                            <span class="lang-flag">🇺🇸</span>
+                            <span class="lang-name">ASL</span>
+                        </button>
+                    </div>
+                    <span id="language-label" class="language-desc">Indian Sign Language</span>
+                </div>
+
+                <!-- Input -->
+                <div class="input-section">
+                    <label class="section-label">Enter Text</label>
+                    <form method="POST" id="form" class="input-form">
+                        <div class="input-wrapper">
+                            <input id="text" type="text" name="text" autocomplete="off"
+                                placeholder="Type a sentence to translate...">
+                            <button id="submit" type="submit">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                    <line x1="22" y1="2" x2="11" y2="13"></line>
+                                    <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                                </svg>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Output Display -->
+                <div class="output-section">
+                    <div class="output-header">
+                        <label class="section-label">
+                            <span id="output-label">ISL</span> Translation
+                        </label>
+                        <span id="stem-badge" class="stem-badge hidden">🔬 STEM</span>
+                    </div>
+                    <div class="output-box">
+                        <p id="isl_text" class="output-text">Translation will appear here...</p>
+                    </div>
+                </div>
+
+                <!-- Current Word -->
+                <div class="now-playing" id="now-playing-section" style="display:none;">
+                    <div class="now-playing-dot"></div>
+                    <span class="now-playing-label">Now signing:</span>
+                    <span class="curr_word_playing"></span>
+                </div>
+            </section>
+
+            <!-- Right Panel: Avatar -->
+            <section class="avatar-panel">
+                <div class="avatar-card">
+                    <a id="player"></a>
+                    <div class="avatar-container">
+                        <div class="avatar-inner">
+                            <table align="center" style="width:100%; height:100%;">
+                                <tr align="center">
+                                    <td width="100%" height="90%">
+                                        <div class="CWASAAvatar av0" align="center"></div>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td align="center">
+                                        <div class="avatar-controls">
+                                            <span class="CWASAAvMenu av0"></span>
+                                            <input type="button" value="▶ Sign"
+                                                class="bttnPlaySiGMLURL av0 avatar-btn" />
+                                            <input type="button" value="⏹ Stop" class="bttnStop av0 avatar-btn" />
+                                            <span class="CWASASpeed av0"></span>
+                                        </div>
+                                        <div class="avatar-info">
+                                            <span>Sign/Frame: <input class="txtSF av0 info-input" value="0/0"
+                                                    type="text"></span>
+                                            <span>Gloss: <input class="txtGloss av0 info-input" value="[none]"
+                                                    type="text"></span>
+                                        </div>
+                                        <span class="spanInfo av0" style="display:none;">
+                                            Status: <input type="text" class="statusExtra av0">
+                                        </span>
+                                        <input type="text" id="URLText" class="txtSiGMLURL av0 undisplayed" value="" />
+                                        <script language="javascript">setSiGMLURL("SignFiles/B.sigml");</script>
+                                    </td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Footer -->
+        <footer class="app-footer">
+            <p>Built for STEM education accessibility &bull; Powered by Stanza NLP + CWASA Avatar</p>
+        </footer>
+    </div>
+
+    <script type="text/javascript" src="{{ url_for('static', filename='js/script.js') }}"></script>
+</body>
+
+</html>
