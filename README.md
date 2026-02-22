@@ -58,3 +58,4 @@ A modern, STEM-optimized Sign Language translator that converts English text and
 
 ---
 *Optimized for HackX 2026*
+# STEM-to-Sign-Language
