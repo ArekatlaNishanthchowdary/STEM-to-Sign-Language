@@ -1193,6 +1193,93 @@ If it's a general concept (like Photosynthesis) rather than a math formula, use 
     })
 
 
+# ============================================================
+# QUIZ MODE — Avatar Signs, User Guesses
+# ============================================================
+
+# Curated learning categories for the education mode
+# IMPORTANT: Every word MUST exist in words.txt (VALID_WORDS) to have a SIGML file!
+SIGN_CATEGORIES = {
+    "Greetings 🤝": ["hello", "goodbye", "bye", "welcome", "sorry", "please", "thankyou"],
+    "Numbers 🔢": ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"],
+    "Family 👨‍👩‍👧": ["mother", "father", "sister", "brother", "baby", "family", "friend", "man", "girl", "child"],
+    "Colors 🎨": ["red", "blue", "green", "yellow", "white", "black", "orange", "pink"],
+    "Actions 🏃": ["walk", "run", "eat", "drink", "sleep", "sit", "stand", "dance", "jump", "swim", "cook", "read", "write", "play"],
+    "Time 🕐": ["today", "tomorrow", "yesterday", "morning", "night", "afternoon", "evening", "week", "month", "year", "now"],
+    "Feelings 😊": ["happy", "sad", "angry", "tired", "good", "bad", "love", "like", "hungry", "afraid", "sick", "cry", "laugh"]
+}
+
+# Validate at startup — catch mistakes early
+for _cat, _words in SIGN_CATEGORIES.items():
+    for _w in _words:
+        if _w.lower() not in VALID_WORDS:
+            print(f"[WARNING] Category '{_cat}' has invalid word: '{_w}' (not in vocabulary!)")
+
+
+
+import random
+
+@app.route('/learn/categories', methods=['GET'])
+def get_learn_categories():
+    """Returns list of categories and counts"""
+    categories = []
+    for cat, words in SIGN_CATEGORIES.items():
+        categories.append({
+            "name": cat,
+            "count": len(words)
+        })
+    return jsonify(categories)
+
+@app.route('/learn/words', methods=['POST'])
+def get_learn_words():
+    """Returns words and SIGML for a category"""
+    data = request.get_json() or {}
+    category_name = data.get('category')
+    
+    if category_name not in SIGN_CATEGORIES:
+        return jsonify({"error": "Category not found"}), 404
+        
+    words = SIGN_CATEGORIES[category_name]
+    result = []
+    
+    for word in words:
+        # Build sigml dict for avatar playback
+        sigml_dict = {"1": word.lower()}
+        result.append({
+            "word": word,
+            "sigml": sigml_dict
+        })
+        
+    return jsonify(result)
+
+@app.route('/learn/quiz', methods=['POST'])
+def get_learn_quiz():
+    """Returns a multiple-choice question for a category"""
+    data = request.get_json() or {}
+    category_name = data.get('category')
+    
+    if category_name not in SIGN_CATEGORIES:
+        return jsonify({"error": "Category not found"}), 404
+        
+    pool = SIGN_CATEGORIES[category_name]
+    if len(pool) < 4:
+        # Fallback if category is too small
+        pool = pool + random.sample([w for w in VALID_WORDS if w not in pool], 4 - len(pool))
+        
+    correct_word = random.choice(pool)
+    
+    # Get 3 distractors
+    distractors = random.sample([w for w in pool if w != correct_word], 3)
+    options = distractors + [correct_word]
+    random.shuffle(options)
+    
+    return jsonify({
+        "question_word": correct_word,
+        "sigml": {"1": correct_word.lower()},
+        "options": options,
+        "correct_index": options.index(correct_word)
+    })
+
 @app.route('/history', methods=['GET'])
 def get_history():
     """Get translation history"""

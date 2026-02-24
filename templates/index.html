@@ -144,6 +144,9 @@
                     <button class="mode-tab" data-mode="doubt" onclick="switchInputMode('doubt')">
                         <span>❓</span> Ask Doubt
                     </button>
+                    <button class="mode-tab" data-mode="quiz" onclick="switchInputMode('quiz')">
+                        <span>🎯</span> Quiz
+                    </button>
                 </div>
 
                 <!-- Text Input Section -->
@@ -227,6 +230,79 @@
                     </div>
                 </div>
 
+                <!-- Sign Learning Challenge Section (Redesigned Quiz) -->
+                <div id="quiz-section" class="input-section" style="display:none;">
+                    <label class="section-label">🎓 Sign Learning Challenge — Learn then Quiz!</label>
+
+                    <!-- 1. Category Picker -->
+                    <div id="quiz-category-picker" class="quiz-category-picker">
+                        <p class="quiz-intro">Choose a category to start learning signs:</p>
+                        <div id="category-grid" class="category-grid">
+                            <!-- Categories will be injected here -->
+                            <div class="loading-cats">Loading categories...</div>
+                        </div>
+                    </div>
+
+                    <!-- 2. Learn Mode Panel -->
+                    <div id="quiz-learn-panel" class="quiz-learn-panel" style="display:none;">
+                        <div class="quiz-panel-header">
+                            <button class="btn-back-to-cats" onclick="backToCategories()">← Categories</button>
+                            <span class="quiz-progress">Word <span id="learn-current">1</span> of <span
+                                    id="learn-total">5</span></span>
+                        </div>
+                        <div class="learn-word-display">
+                            <h2 id="learn-word-text">WORD</h2>
+                            <p class="learn-instruction">Watch the avatar sign this word</p>
+                            <button class="btn-learn-replay" onclick="replayLearnWord()">🔄 Replay Sign</button>
+                        </div>
+                        <div class="learn-actions">
+                            <button class="btn-learn-next" id="btn-learn-next" onclick="nextLearnWord()">Next Word
+                                →</button>
+                        </div>
+                    </div>
+
+                    <!-- 3. Quiz Mode Panel (Multiple Choice) -->
+                    <div id="quiz-test-panel" class="quiz-test-panel" style="display:none;">
+                        <div class="quiz-panel-header">
+                            <span class="quiz-progress">Question <span id="quiz-current">1</span> of <span
+                                    id="quiz-total">5</span></span>
+                            <span class="quiz-session-score">Score: <span id="quiz-score-num">0</span></span>
+                        </div>
+                        <div class="quiz-question-container">
+                            <p class="quiz-instruction">The avatar just signed a word. What was it?</p>
+                            <button class="btn-quiz-replay-big" onclick="replayQuizWord()">🔄 Replay Sign</button>
+
+                            <div id="quiz-options-grid" class="quiz-options-grid">
+                                <!-- 4 Multiple choice options -->
+                                <button class="quiz-option" onclick="selectQuizOption(0)">Option A</button>
+                                <button class="quiz-option" onclick="selectQuizOption(1)">Option B</button>
+                                <button class="quiz-option" onclick="selectQuizOption(2)">Option C</button>
+                                <button class="quiz-option" onclick="selectQuizOption(3)">Option D</button>
+                            </div>
+                        </div>
+                        <div id="quiz-test-feedback" class="quiz-test-feedback" style="display:none;"></div>
+                        <button class="btn-quiz-next-q" id="btn-quiz-next-q" onclick="nextQuizQuestion()"
+                            style="display:none;">Next Question →</button>
+                    </div>
+
+                    <!-- 4. Results Screen -->
+                    <div id="quiz-results-panel" class="quiz-results-panel" style="display:none;">
+                        <div class="results-content">
+                            <span class="results-icon">🏆</span>
+                            <h2>Challenge Complete!</h2>
+                            <div class="results-score-circle">
+                                <span id="results-score-final">0</span>/<span id="results-total-final">5</span>
+                            </div>
+                            <p id="results-message">Great job! You're getting better at signing.</p>
+                            <div class="results-actions">
+                                <button class="btn-results-retry" onclick="restartCategory()">Try Category
+                                    Again</button>
+                                <button class="btn-results-home" onclick="backToCategories()">Pick New Category</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Topic-Wise Mode -->
                 <div class="topic-mode-section">
                     <div class="topic-mode-header">
@@ -266,6 +342,17 @@
                     <div class="output-box">
                         <p id="isl_text" class="output-text">Translation will appear here...</p>
                     </div>
+                </div>
+
+                <!-- Sentence Navigator (Paragraph Mode) -->
+                <div id="sentence-nav" class="sentence-nav" style="display:none;">
+                    <button class="sentence-nav-btn" id="btn-prev-sentence" onclick="prevSentence()" disabled>←
+                        Prev</button>
+                    <span class="sentence-nav-indicator">
+                        <span id="sentence-current">1</span> / <span id="sentence-total">1</span>
+                    </span>
+                    <button class="sentence-nav-btn" id="btn-next-sentence" onclick="nextSentence()">Next →</button>
+                    <button class="sentence-nav-autoplay" id="btn-autoplay" onclick="toggleAutoplay()">▶ Auto</button>
                 </div>
 
                 <!-- Concept Explanation Panel -->
@@ -375,7 +462,57 @@
                         <button class="action-btn" id="btn-history" onclick="toggleHistory()">
                             📜 History
                         </button>
+                        <button class="action-btn" id="btn-progress" onclick="toggleProgress()">
+                            📊 Progress
+                        </button>
                     </div>
+                </div>
+
+                <!-- Learning Progress Panel -->
+                <div id="progress-panel" class="progress-panel" style="display:none;">
+                    <div class="progress-header">
+                        <label class="section-label">📊 Learning Progress</label>
+                        <button class="btn-close-progress" onclick="toggleProgress()">✕</button>
+                    </div>
+                    <div class="progress-stats-grid">
+                        <div class="progress-stat-card">
+                            <span class="progress-stat-icon">📝</span>
+                            <span class="progress-stat-value" id="stat-translations">0</span>
+                            <span class="progress-stat-label">Translations</span>
+                        </div>
+                        <div class="progress-stat-card">
+                            <span class="progress-stat-icon">📚</span>
+                            <span class="progress-stat-value" id="stat-words-learned">0</span>
+                            <span class="progress-stat-label">Words Learned</span>
+                        </div>
+                        <div class="progress-stat-card">
+                            <span class="progress-stat-icon">🎯</span>
+                            <span class="progress-stat-value" id="stat-quiz-played">0</span>
+                            <span class="progress-stat-label">Quizzes Played</span>
+                        </div>
+                        <div class="progress-stat-card">
+                            <span class="progress-stat-icon">⭐</span>
+                            <span class="progress-stat-value" id="stat-quiz-correct">0</span>
+                            <span class="progress-stat-label">Quiz Correct</span>
+                        </div>
+                        <div class="progress-stat-card">
+                            <span class="progress-stat-icon">🔥</span>
+                            <span class="progress-stat-value" id="stat-best-streak">0</span>
+                            <span class="progress-stat-label">Best Streak</span>
+                        </div>
+                        <div class="progress-stat-card">
+                            <span class="progress-stat-icon">🏆</span>
+                            <span class="progress-stat-value" id="stat-total-score">0</span>
+                            <span class="progress-stat-label">Total Score</span>
+                        </div>
+                    </div>
+                    <div class="progress-recent">
+                        <label class="progress-recent-label">🗓️ Recent Words Signed</label>
+                        <div class="progress-word-chips" id="progress-word-chips">
+                            <span class="progress-empty">No words yet — start translating!</span>
+                        </div>
+                    </div>
+                    <button class="btn-reset-progress" onclick="resetProgress()">Reset All Progress</button>
                 </div>
 
                 <!-- History Panel -->
@@ -413,7 +550,7 @@
             <button class="lightbox-arrow lightbox-next" onclick="navigateLightbox(1, event)">&#8250;</button>
         </div>
     </div>
-    <script type="text/javascript" src="{{ url_for('static', filename='js/script.js') }}?v=1.1"></script>
+    <script type="text/javascript" src="{{ url_for('static', filename='js/script.js') }}?v=1.6"></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             VANTA.NET({
