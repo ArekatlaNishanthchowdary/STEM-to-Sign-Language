@@ -17,6 +17,21 @@
 
     <meta http-equiv="Access-Control-Allow-Methods" content="GET">
     <link rel="stylesheet" href="{{url_for('static',filename='css/cwasa.css')}}">
+
+    <!-- Force WebGL to preserve drawing buffer so we can capture frame screenshots -->
+    <script>
+        (function () {
+            var origGetContext = HTMLCanvasElement.prototype.getContext;
+            HTMLCanvasElement.prototype.getContext = function (type, attrs) {
+                if (type === 'webgl' || type === 'webgl2' || type === 'experimental-webgl') {
+                    attrs = attrs || {};
+                    attrs.preserveDrawingBuffer = true;
+                }
+                return origGetContext.call(this, type, attrs);
+            };
+        })();
+    </script>
+
     <script type="text/javascript" src="{{url_for('static',filename='js/allcsa.js')}}"></script>
 
     <script language="javascript">
@@ -303,6 +318,20 @@
                         </div>
                     </div>
 
+                    <!-- Sign Frame Gallery -->
+                    <div id="sign-gallery" class="sign-gallery" style="display:none;">
+                        <div class="gallery-header">
+                            <label class="section-label">📸 Sign Gallery — Review Each Sign</label>
+                            <span id="gallery-count" class="gallery-count"></span>
+                        </div>
+                        <div class="gallery-strip-wrapper">
+                            <button class="gallery-nav gallery-prev" onclick="scrollGallery(-1)">‹</button>
+                            <div id="gallery-strip" class="gallery-strip"></div>
+                            <button class="gallery-nav gallery-next" onclick="scrollGallery(1)">›</button>
+                        </div>
+                    </div>
+
+
                     <!-- Action Buttons -->
                     <div class="action-buttons">
                         <button class="action-btn" id="btn-save" onclick="saveLessonLocal()">
@@ -334,6 +363,21 @@
         <footer class="app-footer">
             <p>Built for STEM Education Accessibility &bull; Powered by Groq AI + CWASA Avatar</p>
         </footer>
+    </div>
+
+
+    <!-- Lightbox Modal (must be at body root to escape stacking contexts) -->
+    <div id="gallery-lightbox" class="gallery-lightbox" style="display:none;" onclick="closeLightbox(event)">
+        <div class="lightbox-content" onclick="event.stopPropagation()">
+            <button class="lightbox-close" onclick="closeLightbox()">&times;</button>
+            <button class="lightbox-arrow lightbox-prev" onclick="navigateLightbox(-1, event)">‹</button>
+            <div class="lightbox-center">
+                <img id="lightbox-img" class="lightbox-img" src="" alt="Sign frame">
+                <div id="lightbox-label" class="lightbox-label"></div>
+                <div id="lightbox-counter" class="lightbox-counter"></div>
+            </div>
+            <button class="lightbox-arrow lightbox-next" onclick="navigateLightbox(1, event)">›</button>
+        </div>
     </div>
 
     <script type="text/javascript" src="{{ url_for('static', filename='js/script.js') }}"></script>

@@ -13,6 +13,8 @@ var structuredData = null;
 var lastTranslationInput = '';
 var lastGlossDisplay = '';
 var activeRecognition = null;
+var capturedFrames = [];
+var lightboxIndex = 0;
 
 // ============================================
 // Voice Input (Web Speech API)
@@ -508,6 +510,7 @@ function play_each_word() {
     currentWordIndex = 0;
     isPaused = false;
     updatePauseButton();
+    capturedFrames = [];
 
     document.getElementById('submit').disabled = true;
 
@@ -536,6 +539,7 @@ function play_each_word() {
                 playbackInterval = null;
                 document.getElementById('submit').disabled = false;
                 hide_curr_word();
+                renderSignGallery();
             } else {
                 // If we're at the end but still waiting, show error but allow finish
                 display_err_message();
@@ -557,6 +561,12 @@ function play_each_word() {
                 startPlayer('SignFiles/' + wordArray[currentWordIndex] + '.sigml');
                 display_curr_word(wordArray[currentWordIndex]);
                 highlightCurrentWord(currentWordIndex);
+                // Capture frame 800ms after sign starts (allows avatar to reach pose)
+                (function (idx, word) {
+                    setTimeout(function () {
+                        captureAvatarFrame(word);
+                    }, 800);
+                })(currentWordIndex, wordArray[currentWordIndex]);
                 currentWordIndex++;
             } catch (err) {
                 console.error('Player start error:', err);
@@ -754,3 +764,124 @@ var loadingTout = setInterval(function () {
         console.log('Avatar loaded successfully!');
     }
 }, 1500);
+
+// ============================================
+// Sign Frame Gallery
+// ============================================
+
+function captureAvatarFrame(word) {
+    try {
+        // Find the WebGL canvas inside the CWASA avatar container
+        var canvas = document.querySelector('.CWASAAvatar canvas');
+        if (!canvas) {
+            console.warn('[GALLERY] No canvas found for frame capture');
+            return;
+        }
+
+        // For WebGL canvases, we need to capture right after render
+        // Try toDataURL directly (works if preserveDrawingBuffer is true)
+        var dataUrl = canvas.toDataURL('image/png');
+
+        // Check if we got a valid (non-blank) image
+        if (dataUrl && dataUrl.length > 100) {
+            capturedFrames.push({
+                word: word,
+                image: dataUrl,
+                index: capturedFrames.length
+            });
+            console.log('[GALLERY] Captured frame for:', word, '(' + capturedFrames.length + ' total)');
+        } else {
+            // If blank, try requestAnimationFrame approach
+            requestAnimationFrame(function () {
+                var retryUrl = canvas.toDataURL('image/png');
+                if (retryUrl && retryUrl.length > 100) {
+                    capturedFrames.push({
+                        word: word,
+                        image: retryUrl,
+                        index: capturedFrames.length
+                    });
+                    console.log('[GALLERY] Captured frame (retry) for:', word);
+                } else {
+                    console.warn('[GALLERY] Could not capture frame for:', word);
+                }
+            });
+        }
+    } catch (e) {
+        console.error('[GALLERY] Frame capture error:', e);
+    }
+}
+
+function renderSignGallery() {
+    var gallery = document.getElementById('sign-gallery');
+    var strip = document.getElementById('gallery-strip');
+    var countEl = document.getElementById('gallery-count');
+
+    if (!capturedFrames.length) {
+        gallery.style.display = 'none';
+        return;
+    }
+
+    strip.innerHTML = '';
+    countEl.textContent = capturedFrames.length + ' signs captured';
+
+    capturedFrames.forEach(function (frame, idx) {
+        var thumb = document.createElement('div');
+        thumb.className = 'gallery-thumb';
+        thumb.onclick = function () { openLightbox(idx); };
+
+        var img = document.createElement('img');
+        img.src = frame.image;
+        img.alt = frame.word;
+
+        var label = document.createElement('span');
+        label.className = 'gallery-thumb-label';
+        // Show letter for single chars (fingerspelling), word for signs
+        label.textContent = frame.word.length === 1 ? frame.word : frame.word.toLowerCase();
+
+        thumb.appendChild(img);
+        thumb.appendChild(label);
+        strip.appendChild(thumb);
+    });
+
+    gallery.style.display = 'block';
+}
+
+function openLightbox(idx) {
+    lightboxIndex = idx;
+    var lb = document.getElementById('gallery-lightbox');
+    var img = document.getElementById('lightbox-img');
+    var label = document.getElementById('lightbox-label');
+    var counter = document.getElementById('lightbox-counter');
+
+    var frame = capturedFrames[idx];
+    img.src = frame.image;
+    label.textContent = frame.word.length === 1 ? '🔤 Letter: ' + frame.word : '🤟 Sign: ' + frame.word;
+    counter.textContent = (idx + 1) + ' / ' + capturedFrames.length;
+
+    lb.style.display = 'flex';
+
+    // Keyboard navigation
+    document.onkeydown = function (e) {
+        if (e.key === 'ArrowLeft') navigateLightbox(-1, e);
+        else if (e.key === 'ArrowRight') navigateLightbox(1, e);
+        else if (e.key === 'Escape') closeLightbox();
+    };
+}
+
+function closeLightbox(event) {
+    document.getElementById('gallery-lightbox').style.display = 'none';
+    document.onkeydown = null;
+}
+
+function navigateLightbox(direction, event) {
+    if (event) { event.stopPropagation(); event.preventDefault(); }
+    lightboxIndex += direction;
+    if (lightboxIndex < 0) lightboxIndex = capturedFrames.length - 1;
+    if (lightboxIndex >= capturedFrames.length) lightboxIndex = 0;
+    openLightbox(lightboxIndex);
+}
+
+function scrollGallery(direction) {
+    var strip = document.getElementById('gallery-strip');
+    strip.scrollBy({ left: direction * 200, behavior: 'smooth' });
+}
