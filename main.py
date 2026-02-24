@@ -436,27 +436,20 @@ def build_gloss_prompt(text, language="isl"):
     """
     if language == "asl":
         # ASL: Keep EXACT English word order, just drop filler words
-        prompt = f"""Task: Convert English sentence to ASL (American Sign Language) Gloss.
+        prompt = f"""Convert this English text to ASL gloss. Output ONLY one line of UPPERCASE words. Do NOT repeat or duplicate any part.
 
-STRICT Rules:
-1. Keep the EXACT same word order as the original English sentence.
-2. Convert all words to UPPERCASE.
-3. Remove ONLY articles and be-verbs: THE, A, AN, IS, AM, ARE, WAS, WERE, BE, BEEN.
-4. DO NOT rearrange any words.
-5. If it's a question, keep the word order as is.
+Rules:
+1. Keep the EXACT same word order as the English sentence.
+2. Remove ONLY: THE, A, AN, IS, AM, ARE, WAS, WERE, BE, BEEN.
+3. DO NOT rearrange words. DO NOT repeat the output.
 
 Examples:
 "She asked an important question" -> SHE ASKED IMPORTANT QUESTION
 "I eat food every day" -> I EAT FOOD EVERY DAY
-"The boy kicked the ball" -> BOY KICKED BALL
-"I don't understand the formula" -> I DON'T UNDERSTAND FORMULA
-
-Math/STEM:
-- (+) PLUS, (-) MINUS, (=) EQUAL, (*) TIMES, (/) DIVIDE
-- H2O -> H TWO O, CO2 -> C O TWO
+"Hello John how are you" -> HELLO JOHN HOW YOU
 
 Text: {text}
-ASL Gloss:"""
+Gloss:"""
     else:
         # ISL: SOV order (verb ALWAYS comes last)
         prompt = f"""Task: Convert English sentence to ISL (Indian Sign Language) Gloss.
@@ -527,6 +520,16 @@ def llm_to_gloss(text, language="isl"):
         # Remove non-alpha/non-space/non-digit (to keep numbers like H2O)
         cleaned = re.sub(r'[^a-zA-Z0-9\s]', ' ', final_gloss_text)
         gloss_words = [w.upper() for w in cleaned.split() if w.strip()]
+
+        # Deduplication: detect if the output is a repeated pattern
+        if len(gloss_words) >= 4:
+            half = len(gloss_words) // 2
+            # Check if the second half starts with the same words as the first
+            for split_at in range(max(2, half - 2), min(len(gloss_words) - 1, half + 3)):
+                if gloss_words[:min(3, split_at)] == gloss_words[split_at:split_at + min(3, split_at)]:
+                    print(f"[DEDUP] Detected repetition at position {split_at}, trimming")
+                    gloss_words = gloss_words[:split_at]
+                    break
 
         if gloss_words:
             print(f"[LLM] Parsed ({language}) gloss: {gloss_words}")
