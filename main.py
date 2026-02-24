@@ -250,23 +250,56 @@ CHEM_FORMULAS = {
 }
 
 # Physics constants and formulas
+# NOTE: Only use words that have confirmed SIGML files!
+# Available: EQUAL, DIVIDE, ADD, POWER, CUBE, ONE, TWO, THREE, FOUR, FIVE, single letters a-z
+# Missing (will be fingerspelled): TIMES, PLUS, SQUARE, HALF, MULTIPLY
 PHYSICS_FORMULAS = {
-    'f=ma': 'F EQUAL M TIMES A',
-    'e=mc2': 'E EQUAL M C SQUARE',
-    'e=mc²': 'E EQUAL M C SQUARE',
+    # Force = mass × acceleration
+    'f=ma': 'F EQUAL M A',
+    # Einstein's mass-energy equivalence (all common typed variants)
+    'e=mc2': 'E EQUAL M C POWER TWO',
+    'e=mc^2': 'E EQUAL M C POWER TWO',
+    'e=mc²': 'E EQUAL M C POWER TWO',
+    # Ohm's law
     'v=ir': 'V EQUAL I R',
+    # Power = current × voltage
     'p=iv': 'P EQUAL I V',
+    # Ideal gas law
     'pv=nrt': 'P V EQUAL N R T',
+    # Hooke's law
     'f=kx': 'F EQUAL K X',
-    'v=u+at': 'V EQUAL U PLUS A T',
-    's=ut+1/2at2': 'S EQUAL U T PLUS HALF A T SQUARE',
-    'v2=u2+2as': 'V SQUARE EQUAL U SQUARE PLUS TWO A S',
-    'f=gm1m2/r2': 'F EQUAL G M ONE M TWO DIVIDE R SQUARE',
-    'ke=1/2mv2': 'K E EQUAL HALF M V SQUARE',
+    # Kinematics
+    'v=u+at': 'V EQUAL U ADD A T',
+    'v=u+a*t': 'V EQUAL U ADD A T',
+    's=ut+1/2at2': 'S EQUAL U T ADD ONE DIVIDE TWO A T POWER TWO',
+    's=ut+1/2at^2': 'S EQUAL U T ADD ONE DIVIDE TWO A T POWER TWO',
+    'v2=u2+2as': 'V POWER TWO EQUAL U POWER TWO ADD TWO A S',
+    'v^2=u^2+2as': 'V POWER TWO EQUAL U POWER TWO ADD TWO A S',
+    # Gravitational force
+    'f=gm1m2/r2': 'F EQUAL G M ONE M TWO DIVIDE R POWER TWO',
+    'f=gm1m2/r^2': 'F EQUAL G M ONE M TWO DIVIDE R POWER TWO',
+    # Kinetic energy
+    'ke=1/2mv2': 'K E EQUAL ONE DIVIDE TWO M V POWER TWO',
+    'ke=1/2mv^2': 'K E EQUAL ONE DIVIDE TWO M V POWER TWO',
+    'ke=0.5mv2': 'K E EQUAL ONE DIVIDE TWO M V POWER TWO',
+    'ke=0.5mv^2': 'K E EQUAL ONE DIVIDE TWO M V POWER TWO',
+    # Potential energy
     'pe=mgh': 'P E EQUAL M G H',
+    # Work
     'w=fd': 'W EQUAL F D',
+    # Power
     'p=w/t': 'P EQUAL W DIVIDE T',
+    # Wavelength
     'λ=v/f': 'LAMBDA EQUAL V DIVIDE F',
+    # Coulomb's law
+    'f=kq1q2/r2': 'F EQUAL K Q ONE Q TWO DIVIDE R POWER TWO',
+    'f=kq1q2/r^2': 'F EQUAL K Q ONE Q TWO DIVIDE R POWER TWO',
+    # Speed
+    's=d/t': 'S EQUAL D DIVIDE T',
+    'v=d/t': 'V EQUAL D DIVIDE T',
+    # Acceleration
+    'a=v/t': 'A EQUAL V DIVIDE T',
+    'a=(v-u)/t': 'A EQUAL V U DIVIDE T',
 }
 
 # Units mapping
@@ -318,11 +351,20 @@ def number_to_words(num_str):
 def preprocess_math(text):
     """Convert math, formulas, numbers, Greek letters, units to sign-friendly words"""
 
-    # 1. Handle known physics formulas first
+    # 1. Handle known physics formulas first (normalize ^ for matching)
     text_lower = text.lower().replace(' ', '')
+    text_lower_no_caret = text_lower.replace('^', '')
     for formula, expansion in PHYSICS_FORMULAS.items():
-        if formula.replace(' ', '') in text_lower:
-            text = re.sub(re.escape(formula), expansion, text, flags=re.IGNORECASE)
+        formula_clean = formula.replace(' ', '').replace('^', '')
+        if formula_clean in text_lower_no_caret:
+            # Replace the original text (with or without ^) using a flexible pattern
+            pattern = re.compile(
+                re.escape(formula).replace(r'\^', r'\^?'),
+                re.IGNORECASE
+            )
+            text = pattern.sub(expansion, text)
+            # If formula matched, return early to avoid further mangling
+            return text
 
     # 2. Handle known chemical formulas
     for formula, expansion in CHEM_FORMULAS.items():
@@ -664,9 +706,22 @@ def index():
         expansion = CHEM_FORMULAS[text_key]
         gloss_words = [w.upper() for w in expansion.split() if w.strip()]
         print(f"[CHEM BYPASS] '{text_clean}' -> {gloss_words}")
+
     else:
-        # Step 1: LLM converts English → Sign Language Gloss
-        gloss_words = llm_to_gloss(text_clean, language)
+        # Step 0b: Check if input is a known physics formula (bypass LLM)
+        physics_matched = False
+        input_normalized = text_key.replace('^', '').replace('²', '2').replace('³', '3')
+        for formula, expansion in PHYSICS_FORMULAS.items():
+            formula_normalized = formula.replace('^', '').replace('²', '2').replace('³', '3').replace(' ', '')
+            if input_normalized == formula_normalized:
+                gloss_words = [w.upper() for w in expansion.split() if w.strip()]
+                print(f"[PHYSICS BYPASS] '{text_clean}' -> {gloss_words}")
+                physics_matched = True
+                break
+
+        if not physics_matched:
+            # Step 1: LLM converts English → Sign Language Gloss
+            gloss_words = llm_to_gloss(text_clean, language)
 
     # Step 2: Match gloss words to SIGML files
     sigml_sequence = match_to_sigml(gloss_words)
