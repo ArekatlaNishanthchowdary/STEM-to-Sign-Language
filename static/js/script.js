@@ -21,7 +21,7 @@ var activeRecognition = null;
 function startVoiceInput(targetId) {
     var SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {
-        alert('Voice input is not supported in this browser. Please use Chrome or Edge.');
+        alert('Voice input is not supported in this browser. Please use Google Chrome or Microsoft Edge.');
         return;
     }
 
@@ -35,12 +35,13 @@ function startVoiceInput(targetId) {
 
     var recognition = new SpeechRecognition();
     recognition.lang = 'en-US';
-    recognition.interimResults = true;
-    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.continuous = true;
     recognition.maxAlternatives = 1;
 
     var targetEl = document.getElementById(targetId);
     var micBtn = targetId === 'text' ? document.getElementById('btn-mic-text') : document.getElementById('btn-mic-doubt');
+    var silenceTimer = null;
 
     micBtn.classList.add('mic-active');
     activeRecognition = recognition;
@@ -51,24 +52,48 @@ function startVoiceInput(targetId) {
             transcript += event.results[i][0].transcript;
         }
         targetEl.value = transcript;
+
+        // Auto-stop after 3 seconds of silence
+        if (silenceTimer) clearTimeout(silenceTimer);
+        silenceTimer = setTimeout(function () {
+            if (activeRecognition) {
+                activeRecognition.stop();
+            }
+        }, 3000);
     };
 
     recognition.onend = function () {
+        if (silenceTimer) clearTimeout(silenceTimer);
         micBtn.classList.remove('mic-active');
         activeRecognition = null;
+        console.log('[MIC] Recording ended. Text:', targetEl.value);
     };
 
     recognition.onerror = function (event) {
-        console.error('Speech recognition error:', event.error);
+        console.error('[MIC] Error:', event.error);
+        if (silenceTimer) clearTimeout(silenceTimer);
         micBtn.classList.remove('mic-active');
         activeRecognition = null;
         if (event.error === 'not-allowed') {
-            alert('Microphone access denied. Please allow microphone permission.');
+            alert('Microphone access denied. Please click the lock icon in the address bar and allow microphone access.');
+        } else if (event.error === 'no-speech') {
+            alert('No speech detected. Please try again and speak clearly.');
+        } else if (event.error === 'network') {
+            alert('Network error. Speech recognition requires an internet connection.');
         }
     };
 
-    recognition.start();
+    try {
+        recognition.start();
+        console.log('[MIC] Listening started for:', targetId);
+    } catch (e) {
+        console.error('[MIC] Failed to start:', e);
+        micBtn.classList.remove('mic-active');
+        activeRecognition = null;
+        alert('Could not start microphone. Please make sure you are using Chrome or Edge and accessing via http://localhost:5000');
+    }
 }
+
 
 // ============================================
 // Language Toggle
