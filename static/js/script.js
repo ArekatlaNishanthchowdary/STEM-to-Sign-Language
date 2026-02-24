@@ -13,6 +13,8 @@ var structuredData = null;
 var lastTranslationInput = '';
 var lastGlossDisplay = '';
 var activeRecognition = null;
+var galleryFrames = [];
+var lightboxIndex = 0;
 
 // ============================================
 // Voice Input (Web Speech API)
@@ -505,6 +507,11 @@ function play_each_word() {
     isPaused = false;
     updatePauseButton();
 
+    // Reset gallery for new playback
+    galleryFrames = [];
+    document.getElementById('sign-gallery').style.display = 'none';
+    document.getElementById('gallery-strip').innerHTML = '';
+
     document.getElementById('submit').disabled = true;
 
     // Clear any existing interval
@@ -532,6 +539,8 @@ function play_each_word() {
                 playbackInterval = null;
                 document.getElementById('submit').disabled = false;
                 hide_curr_word();
+                // Build gallery after all signs have played
+                buildGallery();
             } else {
                 // If we're at the end but still waiting, show error but allow finish
                 display_err_message();
@@ -553,6 +562,14 @@ function play_each_word() {
                 startPlayer('SignFiles/' + wordArray[currentWordIndex] + '.sigml');
                 display_curr_word(wordArray[currentWordIndex]);
                 highlightCurrentWord(currentWordIndex);
+
+                // Capture frame after a delay to let the sign animation reach peak pose
+                (function (idx, word) {
+                    setTimeout(function () {
+                        captureFrame(word);
+                    }, 700);
+                })(currentWordIndex, wordArray[currentWordIndex]);
+
                 currentWordIndex++;
             } catch (err) {
                 console.error('Player start error:', err);
@@ -569,6 +586,156 @@ function play_each_word() {
         }
     }, interval);
 }
+
+// ============================================
+// Sign Frame Gallery — Capture & Display
+// ============================================
+
+function captureFrame(word) {
+    try {
+        // Find the WebGL canvas inside the CWASA avatar container
+        var canvas = document.querySelector('.CWASAAvatar canvas');
+        if (!canvas) {
+            console.warn('[Gallery] No canvas found for frame capture');
+            return;
+        }
+        var dataUrl = canvas.toDataURL('image/png');
+        galleryFrames.push({
+            dataUrl: dataUrl,
+            label: word.toUpperCase()
+        });
+        console.log('[Gallery] Captured frame for: ' + word);
+    } catch (e) {
+        console.error('[Gallery] Frame capture error:', e);
+    }
+}
+
+function buildGallery() {
+    if (galleryFrames.length === 0) return;
+
+    var galleryEl = document.getElementById('sign-gallery');
+    var stripEl = document.getElementById('gallery-strip');
+    var countEl = document.getElementById('gallery-count');
+
+    stripEl.innerHTML = '';
+    countEl.textContent = galleryFrames.length + ' sign' + (galleryFrames.length > 1 ? 's' : '');
+
+    galleryFrames.forEach(function (frame, idx) {
+        var thumb = document.createElement('div');
+        thumb.className = 'gallery-thumb';
+        thumb.onclick = function () { openLightbox(idx); };
+
+        var img = document.createElement('img');
+        img.src = frame.dataUrl;
+        img.alt = frame.label;
+
+        var label = document.createElement('span');
+        label.className = 'gallery-thumb-label';
+        label.textContent = frame.label;
+
+        thumb.appendChild(img);
+        thumb.appendChild(label);
+        stripEl.appendChild(thumb);
+    });
+
+    galleryEl.style.display = 'block';
+
+    // Smooth reveal animation
+    if (window.gsap) {
+        gsap.fromTo(galleryEl,
+            { opacity: 0, y: 20 },
+            { opacity: 1, y: 0, duration: 0.5, ease: 'power3.out' }
+        );
+        gsap.fromTo('.gallery-thumb',
+            { scale: 0.8, opacity: 0 },
+            { scale: 1, opacity: 1, duration: 0.3, stagger: 0.05, delay: 0.2, ease: 'back.out(1.5)' }
+        );
+    }
+}
+
+function scrollGallery(direction) {
+    var strip = document.getElementById('gallery-strip');
+    var scrollAmount = 200;
+    strip.scrollBy({ left: direction * scrollAmount, behavior: 'smooth' });
+}
+
+// ============================================
+// Lightbox Viewer
+// ============================================
+
+function openLightbox(index) {
+    if (galleryFrames.length === 0) return;
+    lightboxIndex = index;
+
+    var lightbox = document.getElementById('gallery-lightbox');
+    var img = document.getElementById('lightbox-img');
+    var label = document.getElementById('lightbox-label');
+    var counter = document.getElementById('lightbox-counter');
+
+    img.src = galleryFrames[index].dataUrl;
+    label.textContent = galleryFrames[index].label;
+    counter.textContent = (index + 1) + ' / ' + galleryFrames.length;
+
+    lightbox.style.display = 'flex';
+
+    // Animate in
+    if (window.gsap) {
+        gsap.fromTo(lightbox, { opacity: 0 }, { opacity: 1, duration: 0.25 });
+        gsap.fromTo('.lightbox-img', { scale: 0.9 }, { scale: 1, duration: 0.3, ease: 'back.out(1.5)' });
+    }
+}
+
+function closeLightbox(event) {
+    var lightbox = document.getElementById('gallery-lightbox');
+    if (window.gsap) {
+        gsap.to(lightbox, {
+            opacity: 0, duration: 0.2,
+            onComplete: function () { lightbox.style.display = 'none'; }
+        });
+    } else {
+        lightbox.style.display = 'none';
+    }
+}
+
+function navigateLightbox(direction, event) {
+    if (event) event.stopPropagation();
+    if (galleryFrames.length === 0) return;
+
+    lightboxIndex += direction;
+    // Wrap around
+    if (lightboxIndex < 0) lightboxIndex = galleryFrames.length - 1;
+    if (lightboxIndex >= galleryFrames.length) lightboxIndex = 0;
+
+    var img = document.getElementById('lightbox-img');
+    var label = document.getElementById('lightbox-label');
+    var counter = document.getElementById('lightbox-counter');
+
+    img.src = galleryFrames[lightboxIndex].dataUrl;
+    label.textContent = galleryFrames[lightboxIndex].label;
+    counter.textContent = (lightboxIndex + 1) + ' / ' + galleryFrames.length;
+
+    // Quick slide animation
+    if (window.gsap) {
+        gsap.fromTo('.lightbox-img',
+            { x: direction * 30, opacity: 0.5 },
+            { x: 0, opacity: 1, duration: 0.25, ease: 'power2.out' }
+        );
+    }
+}
+
+// Keyboard navigation for lightbox
+document.addEventListener('keydown', function (e) {
+    var lightbox = document.getElementById('gallery-lightbox');
+    if (!lightbox || lightbox.style.display === 'none') return;
+
+    if (e.key === 'Escape') {
+        closeLightbox();
+    } else if (e.key === 'ArrowLeft') {
+        navigateLightbox(-1);
+    } else if (e.key === 'ArrowRight') {
+        navigateLightbox(1);
+    }
+});
 
 // ============================================
 // Playback Controls
