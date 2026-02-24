@@ -334,9 +334,13 @@
                             <span id="gallery-count" class="gallery-count"></span>
                         </div>
                         <div class="gallery-strip-wrapper">
-                            <button class="gallery-nav gallery-prev" onclick="scrollGallery(-1)">‹</button>
                             <div id="gallery-strip" class="gallery-strip"></div>
-                            <button class="gallery-nav gallery-next" onclick="scrollGallery(1)">›</button>
+                        </div>
+                        <div class="gallery-slider-wrapper" id="gallery-slider-wrapper" style="display:none;">
+                            <span class="gallery-slider-label" id="gallery-slider-pos">1</span>
+                            <input type="range" id="gallery-slider" class="gallery-slider" min="0" max="0" value="0"
+                                oninput="onGallerySlide(this.value)">
+                            <span class="gallery-slider-label" id="gallery-slider-total">1</span>
                         </div>
                     </div>
 

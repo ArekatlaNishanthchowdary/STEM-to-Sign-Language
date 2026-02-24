@@ -14,6 +14,7 @@ var lastTranslationInput = '';
 var lastGlossDisplay = '';
 var activeRecognition = null;
 var galleryFrames = [];
+var galleryCaptureCount = 0;
 var lightboxIndex = 0;
 
 // ============================================
@@ -506,11 +507,13 @@ function play_each_word() {
     currentWordIndex = 0;
     isPaused = false;
     updatePauseButton();
+    galleryCaptureCount = 0;
 
     // Reset gallery for new playback
     galleryFrames = [];
     document.getElementById('sign-gallery').style.display = 'none';
     document.getElementById('gallery-strip').innerHTML = '';
+    document.getElementById('gallery-slider-wrapper').style.display = 'none';
 
     document.getElementById('submit').disabled = true;
 
@@ -533,16 +536,21 @@ function play_each_word() {
         if (isPaused) return;
 
         if (currentWordIndex == totalWords) {
-            if (playerAvailableToPlay) {
+            // Wait for all animations to stop AND all captures to finish
+            if (playerAvailableToPlay && galleryCaptureCount === 0) {
                 clearInterval(playbackInterval);
                 if (playbackWatchdog) clearTimeout(playbackWatchdog);
                 playbackInterval = null;
                 document.getElementById('submit').disabled = false;
                 hide_curr_word();
-                // Build gallery after all signs have played
+                // Build gallery after all signs have played and captured
                 buildGallery();
+            } else if (playerAvailableToPlay && galleryCaptureCount > 0) {
+                // Playback finished but captures pending - show status
+                document.querySelector('.curr_word_playing').textContent = "SAVING FRAMES...";
             } else {
-                // If we're at the end but still waiting, show error but allow finish
+                // Still waiting for player
+                if (currentWordIndex > 0) hide_curr_word();
                 display_err_message();
                 document.getElementById('submit').disabled = false;
             }
@@ -559,16 +567,16 @@ function play_each_word() {
             }, 3000);
 
             try {
-                startPlayer('SignFiles/' + wordArray[currentWordIndex] + '.sigml');
-                display_curr_word(wordArray[currentWordIndex]);
+                var currentWord = wordArray[currentWordIndex];
+                startPlayer('SignFiles/' + currentWord + '.sigml');
+                display_curr_word(currentWord);
                 highlightCurrentWord(currentWordIndex);
 
                 // Capture frame after a delay to let the sign animation reach peak pose
-                (function (idx, word) {
-                    setTimeout(function () {
-                        captureFrame(word);
-                    }, 700);
-                })(currentWordIndex, wordArray[currentWordIndex]);
+                galleryCaptureCount++;
+                setTimeout(function () {
+                    captureFrame(currentWord);
+                }, 700);
 
                 currentWordIndex++;
             } catch (err) {
@@ -597,6 +605,7 @@ function captureFrame(word) {
         var canvas = document.querySelector('.CWASAAvatar canvas');
         if (!canvas) {
             console.warn('[Gallery] No canvas found for frame capture');
+            galleryCaptureCount = Math.max(0, galleryCaptureCount - 1);
             return;
         }
         var dataUrl = canvas.toDataURL('image/png');
@@ -607,6 +616,8 @@ function captureFrame(word) {
         console.log('[Gallery] Captured frame for: ' + word);
     } catch (e) {
         console.error('[Gallery] Frame capture error:', e);
+    } finally {
+        galleryCaptureCount = Math.max(0, galleryCaptureCount - 1);
     }
 }
 
@@ -640,19 +651,60 @@ function buildGallery() {
 
     galleryEl.style.display = 'block';
 
-    // Smooth reveal animation
-    if (window.gsap) {
-        gsap.fromTo(galleryEl,
-            { opacity: 0, y: 20 },
-            { opacity: 1, y: 0, duration: 0.5, ease: 'power3.out' }
-        );
-        gsap.fromTo('.gallery-thumb',
-            { scale: 0.8, opacity: 0 },
-            { scale: 1, opacity: 1, duration: 0.3, stagger: 0.05, delay: 0.2, ease: 'back.out(1.5)' }
-        );
+    // Show slider if there are enough frames to overflow (or more than 5 frames)
+    var sliderWrapper = document.getElementById('gallery-slider-wrapper');
+    var slider = document.getElementById('gallery-slider');
+    // small delay to let DOM render
+    setTimeout(function () {
+        if (stripEl.scrollWidth > stripEl.clientWidth || galleryFrames.length > 5) {
+            slider.min = 0;
+            slider.max = galleryFrames.length - 1;
+            slider.value = 0;
+            document.getElementById('gallery-slider-pos').textContent = '1';
+            document.getElementById('gallery-slider-total').textContent = galleryFrames.length;
+            sliderWrapper.style.display = 'flex';
+        } else {
+            sliderWrapper.style.display = 'none';
+        }
+    }, 150);
+
+    // No GSAP entrance animation as requested
+    galleryEl.style.opacity = '1';
+    galleryEl.style.transform = 'none';
+}
+
+function onGallerySlide(value) {
+    var strip = document.getElementById('gallery-strip');
+    var slider = document.getElementById('gallery-slider');
+    var idx = parseInt(value);
+    var thumbs = strip.querySelectorAll('.gallery-thumb');
+
+    // Update position label
+    document.getElementById('gallery-slider-pos').textContent = idx + 1;
+
+    if (thumbs[idx]) {
+        var thumb = thumbs[idx];
+
+        // Calculate scroll position to center the thumb
+        // We use offsetLeft which is relative to the strip (since strip is position:relative)
+        var scrollPos = thumb.offsetLeft - (strip.offsetWidth / 2) + (thumb.offsetWidth / 2);
+
+        // Safety check for clientWidth (if zero, don't scroll)
+        if (strip.clientWidth > 0) {
+            // Use 'auto' instead of 'smooth' for slider navigation to make it snappier
+            strip.scrollTo({
+                left: scrollPos,
+                behavior: 'auto'
+            });
+            // Fallback for immediate response
+            strip.scrollLeft = scrollPos;
+        }  // Highlight the active thumb
+        thumbs.forEach(function (t) { t.classList.remove('gallery-thumb-active'); });
+        thumb.classList.add('gallery-thumb-active');
     }
 }
 
+// Legacy scrollGallery still works as fallback
 function scrollGallery(direction) {
     var strip = document.getElementById('gallery-strip');
     var scrollAmount = 200;
