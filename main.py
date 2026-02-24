@@ -302,6 +302,95 @@ PHYSICS_FORMULAS = {
     'a=(v-u)/t': 'A EQUAL V U DIVIDE T',
 }
 
+# ============================================================
+# FORMULA CONTEXT — Variable Meanings & Concept Explanations
+# ============================================================
+FORMULA_CONTEXT = {
+    'f=ma': {
+        'name': "Newton's Second Law of Motion",
+        'variables': {'F': 'Force (push or pull on object)', 'M': 'Mass (how heavy the object is)', 'A': 'Acceleration (how fast speed changes)'},
+        'meaning': 'Force equals mass times acceleration. Heavier objects need more force to move.',
+        'example': 'Pushing a shopping cart: empty cart (low mass) is easy to push, full cart (high mass) needs more force.',
+    },
+    'e=mc2': {
+        'name': "Einstein's Mass-Energy Equivalence",
+        'variables': {'E': 'Energy (total energy stored)', 'M': 'Mass (amount of matter)', 'C': 'Speed of light (very fast, 300 million meters per second)'},
+        'meaning': 'A small amount of mass contains enormous energy. Mass and energy are the same thing.',
+        'example': 'Nuclear power plants convert tiny amounts of matter into huge amounts of electricity.',
+    },
+    'v=ir': {
+        'name': "Ohm's Law",
+        'variables': {'V': 'Voltage (electrical pressure)', 'I': 'Current (flow of electricity)', 'R': 'Resistance (opposition to flow)'},
+        'meaning': 'Voltage equals current times resistance. More resistance means less current flows.',
+        'example': 'Water pipe: voltage is water pressure, current is water flow, resistance is pipe thickness.',
+    },
+    'p=iv': {
+        'name': 'Electrical Power',
+        'variables': {'P': 'Power (energy used per second)', 'I': 'Current (flow of electricity)', 'V': 'Voltage (electrical pressure)'},
+        'meaning': 'Electrical power equals current times voltage.',
+        'example': 'A 100-watt light bulb uses more power than a 40-watt bulb.',
+    },
+    'pv=nrt': {
+        'name': 'Ideal Gas Law',
+        'variables': {'P': 'Pressure (force on walls)', 'V': 'Volume (space gas fills)', 'N': 'Number of moles (amount of gas)', 'R': 'Gas constant (fixed number)', 'T': 'Temperature (how hot)'},
+        'meaning': 'Connects pressure, volume, and temperature of a gas. Heat gas and it expands.',
+        'example': 'Balloon in sun expands because heat increases pressure inside.',
+    },
+    'f=kx': {
+        'name': "Hooke's Law",
+        'variables': {'F': 'Force (push or pull)', 'K': 'Spring constant (stiffness)', 'X': 'Displacement (how far stretched)'},
+        'meaning': 'Force needed to stretch a spring is proportional to the distance stretched.',
+        'example': 'Pulling a rubber band: pull more, it pulls back harder.',
+    },
+    'v=u+at': {
+        'name': 'First Equation of Motion',
+        'variables': {'V': 'Final velocity (end speed)', 'U': 'Initial velocity (start speed)', 'A': 'Acceleration (speed change rate)', 'T': 'Time (duration)'},
+        'meaning': 'Final speed equals starting speed plus acceleration over time.',
+        'example': 'Car starting from rest: the longer you press the gas pedal, the faster you go.',
+    },
+    'pe=mgh': {
+        'name': 'Gravitational Potential Energy',
+        'variables': {'P': 'Potential', 'E': 'Energy', 'M': 'Mass (weight of object)', 'G': 'Gravity (9.8 m/s²)', 'H': 'Height (how high above ground)'},
+        'meaning': 'Energy stored in an object because of its height. Higher = more energy.',
+        'example': 'A book on a high shelf has more potential energy than one on the floor. Drop it and energy converts to motion.',
+    },
+    'w=fd': {
+        'name': 'Work Done',
+        'variables': {'W': 'Work (energy transferred)', 'F': 'Force (push or pull)', 'D': 'Distance (how far moved)'},
+        'meaning': 'Work equals force times distance. No movement means no work done.',
+        'example': 'Pushing a box across a room: more force or more distance means more work.',
+    },
+    'p=w/t': {
+        'name': 'Power',
+        'variables': {'P': 'Power (rate of work)', 'W': 'Work (energy used)', 'T': 'Time (how long)'},
+        'meaning': 'Power is how fast work is done. Same work in less time means more power.',
+        'example': 'Running up stairs is more powerful than walking up — same work, less time.',
+    },
+    's=d/t': {
+        'name': 'Speed Formula',
+        'variables': {'S': 'Speed (how fast)', 'D': 'Distance (how far)', 'T': 'Time (how long)'},
+        'meaning': 'Speed equals distance divided by time.',
+        'example': 'Car travels 100 km in 2 hours: speed is 50 km per hour.',
+    },
+    'a=v/t': {
+        'name': 'Acceleration',
+        'variables': {'A': 'Acceleration (speed change)', 'V': 'Velocity change', 'T': 'Time (duration)'},
+        'meaning': 'Acceleration is how quickly speed changes over time.',
+        'example': 'Sports car reaches 100 km/h in 3 seconds — very high acceleration.',
+    },
+}
+
+# ============================================================
+# STEM CONCEPTS — Complex Terms that need Explanation
+# ============================================================
+STEM_CONCEPTS = {
+    "photosynthesis", "mitosis", "meiosis", "global warming", "greenhouse effect",
+    "gravity", "evolution", "dna", "rna", "atom", "molecule", "cell", "newton's laws",
+    "periodic table", "acid rain", "refraction", "reflection", "osmosis", "diffusion",
+    "electricity", "magnetism", "friction", "energy", "matter", "ecosystem", "food chain",
+    "respiration", "evaporation", "condensation", "precipitation"
+}
+
 # Units mapping
 UNITS = {
     'm/s': 'METER PER SECOND', 'm/s²': 'METER PER SECOND SQUARE',
@@ -705,9 +794,12 @@ def index():
     # Step 0: Check if input is a known chemical formula (bypass LLM)
     text_clean = text.strip()
     text_key = text_clean.lower().replace(' ', '')
+    is_formula = False
+    formula_key = None
     if text_key in CHEM_FORMULAS:
         expansion = CHEM_FORMULAS[text_key]
         gloss_words = [w.upper() for w in expansion.split() if w.strip()]
+        is_formula = True
         print(f"[CHEM BYPASS] '{text_clean}' -> {gloss_words}")
 
     else:
@@ -720,10 +812,30 @@ def index():
                 gloss_words = [w.upper() for w in expansion.split() if w.strip()]
                 print(f"[PHYSICS BYPASS] '{text_clean}' -> {gloss_words}")
                 physics_matched = True
+                is_formula = True
+                # Find canonical key for FORMULA_CONTEXT lookup
+                canon = formula.replace('^', '').replace('²', '2').replace('³', '3').replace(' ', '')
+                for ctx_key in FORMULA_CONTEXT:
+                    if ctx_key.replace(' ', '') == canon:
+                        formula_key = ctx_key
+                        break
                 break
 
         if not physics_matched:
-            # Step 1: LLM converts English → Sign Language Gloss
+            # Step 0c: Check if input contains complex STEM concepts
+            text_lower = text_clean.lower()
+            concept_found = None
+            for concept in STEM_CONCEPTS:
+                if concept in text_lower:
+                    concept_found = concept
+                    break
+            
+            if concept_found:
+                is_formula = True  # Enables "Explain This" button on frontend
+                formula_key = concept_found
+                print(f"[STEM CONCEPT] Found: {formula_key}")
+
+            # Always translate via LLM when not a chem/physics formula bypass
             gloss_words = llm_to_gloss(text_clean, language)
 
     # Step 2: Match gloss words to SIGML files
@@ -760,6 +872,13 @@ def index():
         "display": final_words_dict['_display'],
         "timestamp": datetime.datetime.now().isoformat()
     })
+
+    # Flag if input was a STEM formula (enables "Explain" button on frontend)
+    if is_formula:
+        final_words_dict['_is_formula'] = True
+        final_words_dict['_formula_input'] = text_clean
+        if formula_key:
+            final_words_dict['_formula_key'] = formula_key
 
     return jsonify(final_words_dict)
 
@@ -946,6 +1065,132 @@ def export_lesson():
     }
 
     return jsonify(lesson)
+
+
+@app.route('/explain', methods=['POST'])
+def explain_formula():
+    """Concept Understanding Mode: Explain a STEM formula step-by-step"""
+    data = request.get_json()
+    formula_input = data.get('formula', '').strip()
+    formula_key = data.get('formula_key', '').strip()
+    language = data.get('language', 'isl')
+
+    if not formula_input:
+        return jsonify({"error": "No formula provided"}), 400
+
+    print(f"\n{'='*50}")
+    print(f"[EXPLAIN] Formula: {formula_input} | Key: {formula_key} | Language: {language}")
+    print(f"{'='*50}")
+
+    # Step 1: Look up pre-built context if available
+    context = FORMULA_CONTEXT.get(formula_key, None)
+
+    steps = []
+
+    if context:
+        # Use pre-built context (fast, no LLM needed)
+        print(f"[EXPLAIN] Using pre-built context for '{formula_key}'")
+
+        # Step A: Formula name
+        steps.append({
+            'label': '📌 What is this?',
+            'text': f"This is {context['name']}.",
+        })
+
+        # Step B: Each variable explained
+        for var, meaning in context['variables'].items():
+            steps.append({
+                'label': f'🔤 {var} means',
+                'text': meaning,
+            })
+
+        # Step C: What it means
+        steps.append({
+            'label': '🧠 Why?',
+            'text': context['meaning'],
+        })
+
+        # Step D: Real-world example
+        steps.append({
+            'label': '🌍 Real-world Example',
+            'text': context['example'],
+        })
+
+    else:
+        # LLM fallback for formulas not in FORMULA_CONTEXT
+        print(f"[EXPLAIN] LLM fallback for '{formula_input}'")
+        try:
+            response = groq_client.chat.completions.create(
+                model=GROQ_MODEL,
+                messages=[
+                    {"role": "system", "content": "You are a STEM teacher for deaf students. Explain complex concepts or formulas in very simple language. Be concise. Break it down into clear steps."},
+                    {"role": "user", "content": f"""Explain this STEM concept or formula step by step: {formula_input}
+
+Respond in this EXACT JSON format:
+{{
+  "name": "Concept name", 
+  "variables": {{"Part 1": "Brief explanation of first component"}}, 
+  "meaning": "One sentence simple explanation of the whole thing", 
+  "example": "A real world example"
+}}
+
+If it's a general concept (like Photosynthesis) rather than a math formula, use the 'variables' section to break down the main parts or steps of the process."""}
+                ],
+                temperature=0.3,
+                max_tokens=400,
+            )
+            raw = response.choices[0].message.content.strip()
+            print(f"[EXPLAIN] LLM raw: {raw}")
+
+            # Parse JSON from LLM
+            import json as json_mod
+            # Find JSON in response
+            json_start = raw.find('{')
+            json_end = raw.rfind('}') + 1
+            if json_start >= 0 and json_end > json_start:
+                parsed = json_mod.loads(raw[json_start:json_end])
+                steps.append({'label': '📌 What is this?', 'text': f"This is {parsed.get('name', formula_input)}."})
+                for var, meaning in parsed.get('variables', {}).items():
+                    steps.append({'label': f'🔤 {var} means', 'text': meaning})
+                steps.append({'label': '🧠 Why?', 'text': parsed.get('meaning', '')})
+                steps.append({'label': '🌍 Real-world Example', 'text': parsed.get('example', '')})
+            else:
+                steps.append({'label': '📌 Explanation', 'text': raw})
+
+        except Exception as e:
+            print(f"[EXPLAIN ERROR] {e}")
+            return jsonify({"error": f"Failed to explain: {str(e)}"}), 500
+
+    # Step 2: Translate each explanation step to sign gloss
+    for step in steps:
+        gloss_words = llm_to_gloss(step['text'], language)
+        sigml_sequence = match_to_sigml(gloss_words)
+
+        # Build sigml dict for avatar playback
+        sigml_dict = {}
+        for i, word in enumerate(sigml_sequence, start=1):
+            sigml_dict[str(i)] = word
+
+        # Build display
+        display_parts = []
+        for word in gloss_words:
+            word_lower = word.lower()
+            if word_lower in VALID_WORDS:
+                display_parts.append(word.upper())
+            else:
+                display_parts.append('-'.join(word.upper()))
+        sigml_dict['_display'] = ' '.join(display_parts)
+
+        step['gloss'] = ' '.join(gloss_words)
+        step['sigml'] = sigml_dict
+
+    print(f"[EXPLAIN] Generated {len(steps)} explanation steps")
+
+    return jsonify({
+        'formula': formula_input,
+        'formula_name': context['name'] if context else formula_input,
+        'steps': steps,
+    })
 
 
 @app.route('/history', methods=['GET'])

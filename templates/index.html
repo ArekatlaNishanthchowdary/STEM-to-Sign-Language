@@ -255,10 +255,29 @@
                         <label class="section-label">
                             <span id="output-label">ISL</span> Translation
                         </label>
-                        <span id="stem-badge" class="stem-badge hidden">🔬 STEM</span>
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <span id="stem-badge" class="stem-badge hidden">🔬 STEM</span>
+                            <button id="btn-explain" class="btn-explain" style="display:none;"
+                                onclick="explainConcept()">
+                                🧠 Explain This
+                            </button>
+                        </div>
                     </div>
                     <div class="output-box">
                         <p id="isl_text" class="output-text">Translation will appear here...</p>
+                    </div>
+                </div>
+
+                <!-- Concept Explanation Panel -->
+                <div id="concept-panel" class="concept-panel" style="display:none;">
+                    <div class="concept-header">
+                        <label class="section-label">
+                            <span>🧠</span> <span id="concept-title">Concept Understanding</span>
+                        </label>
+                        <button class="btn-close-concept" onclick="closeConceptPanel()">✕</button>
+                    </div>
+                    <div id="concept-steps" class="concept-steps">
+                        <!-- Steps will be dynamically inserted here -->
                     </div>
                 </div>
 
@@ -394,7 +413,7 @@
             <button class="lightbox-arrow lightbox-next" onclick="navigateLightbox(1, event)">&#8250;</button>
         </div>
     </div>
-    <script type="text/javascript" src="{{ url_for('static', filename='js/script.js') }}"></script>
+    <script type="text/javascript" src="{{ url_for('static', filename='js/script.js') }}?v=1.1"></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             VANTA.NET({

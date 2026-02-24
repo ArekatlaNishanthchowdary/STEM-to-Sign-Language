@@ -16,6 +16,9 @@ var activeRecognition = null;
 var galleryFrames = [];
 var galleryCaptureCount = 0;
 var lightboxIndex = 0;
+var currentFormulaInput = '';
+var currentFormulaKey = '';
+var conceptStepsData = [];
 
 // ============================================
 // Voice Input (Web Speech API)
@@ -359,6 +362,19 @@ function submitTranslation(text) {
             play_each_word();
             display_isl_text(res);
             checkForSTEM(res);
+
+            // Show "Explain This" button if formula detected
+            var btnExplain = document.getElementById('btn-explain');
+            if (res._is_formula) {
+                currentFormulaInput = res._formula_input || '';
+                currentFormulaKey = res._formula_key || '';
+                btnExplain.style.display = 'inline-flex';
+            } else {
+                currentFormulaInput = '';
+                currentFormulaKey = '';
+                btnExplain.style.display = 'none';
+                document.getElementById('concept-panel').style.display = 'none';
+            }
         },
         error: function (xhr) {
             document.getElementById('isl_text').textContent = 'Error occurred. Please try again.';
@@ -375,6 +391,86 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 
 // ============================================
+// Concept Understanding Mode
+// ============================================
+
+function explainConcept() {
+    if (!currentFormulaInput) return;
+
+    var panel = document.getElementById('concept-panel');
+    var stepsContainer = document.getElementById('concept-steps');
+    var title = document.getElementById('concept-title');
+
+    // Show panel with loading state
+    panel.style.display = 'block';
+    title.textContent = 'Loading explanation...';
+    stepsContainer.innerHTML = '<div class="concept-loading"><div class="concept-spinner"></div> Generating step-by-step explanation...</div>';
+
+    // Scroll to panel
+    panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+    $.ajax({
+        url: '/explain',
+        type: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify({
+            formula: currentFormulaInput,
+            formula_key: currentFormulaKey,
+            language: currentLanguage
+        }),
+        success: function (res) {
+            conceptStepsData = res.steps || [];
+            title.textContent = res.formula_name || res.formula;
+
+            var html = '';
+            res.steps.forEach(function (step, index) {
+                var isVariable = step.label.indexOf('means') > -1;
+                var stepClass = isVariable ? 'concept-step variable-step' : 'concept-step';
+
+                html += '<div class="' + stepClass + '" id="concept-step-' + index + '">';
+                html += '  <div class="step-header">';
+                html += '    <span class="step-label">' + step.label + '</span>';
+                html += '    <button class="btn-sign-step" onclick="signExplanationStep(' + index + ')" title="Sign this step">🤟 Sign</button>';
+                html += '  </div>';
+                html += '  <p class="step-text">' + step.text + '</p>';
+                html += '  <div class="step-gloss">';
+                html += '    <span class="gloss-label">Sign Gloss:</span> ';
+                html += '    <span class="gloss-words">' + (step.gloss || '') + '</span>';
+                html += '  </div>';
+                html += '</div>';
+            });
+
+            stepsContainer.innerHTML = html;
+        },
+        error: function (xhr) {
+            var err = xhr.responseJSON ? xhr.responseJSON.error : 'Failed to explain';
+            stepsContainer.innerHTML = '<div class="concept-error">❌ ' + err + '</div>';
+        }
+    });
+}
+
+function closeConceptPanel() {
+    document.getElementById('concept-panel').style.display = 'none';
+}
+
+function signExplanationStep(index) {
+    if (!conceptStepsData[index] || !conceptStepsData[index].sigml) return;
+
+    var stepSigml = conceptStepsData[index].sigml;
+
+    // Highlight active step
+    document.querySelectorAll('.concept-step').forEach(function (el) {
+        el.classList.remove('active-step');
+    });
+    document.getElementById('concept-step-' + index).classList.add('active-step');
+
+    // Load into avatar
+    convert_json_to_arr(stepSigml);
+    display_isl_text(stepSigml);
+    play_each_word();
+}
+
+// ============================================
 // STEM Badge Detection
 // ============================================
 
@@ -384,7 +480,7 @@ function checkForSTEM(words) {
     var hasSingleLetters = false;
 
     Object.keys(words).forEach(function (key) {
-        if (key === '_display') return;
+        if (key.startsWith('_')) return;
         if (words[key].length === 1) {
             consecutiveLetters++;
             if (consecutiveLetters >= 3) hasSingleLetters = true;
@@ -435,7 +531,7 @@ function display_isl_text(words) {
     } else {
         p.textContent = '';
         Object.keys(words).forEach(function (key) {
-            if (key === '_display') return;
+            if (key.startsWith('_')) return;
             p.textContent += words[key] + ' ';
         });
     }
@@ -496,7 +592,7 @@ function display_err_message() {
 function convert_json_to_arr(words) {
     wordArray = [];
     Object.keys(words).forEach(function (key) {
-        if (key !== '_display') {
+        if (!key.startsWith('_')) {
             wordArray.push(words[key]);
         }
     });

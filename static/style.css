@@ -1684,3 +1684,230 @@ html {
     background: rgba(99, 102, 241, 0.3);
     border-color: var(--accent);
 }
+
+/* ============================================
+   Concept Understanding Mode
+   ============================================ */
+
+/* Explain This Button */
+.btn-explain {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    background: linear-gradient(135deg, rgba(255, 214, 0, 0.15), rgba(255, 214, 0, 0.05));
+    border: 1px solid rgba(255, 214, 0, 0.3);
+    border-radius: 20px;
+    color: var(--accent);
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--transition);
+    font-family: var(--font);
+    animation: explainPulse 2s ease-in-out infinite;
+}
+
+.btn-explain:hover {
+    background: linear-gradient(135deg, rgba(255, 214, 0, 0.3), rgba(255, 214, 0, 0.1));
+    border-color: var(--accent);
+    transform: scale(1.05);
+    box-shadow: 0 0 20px rgba(255, 214, 0, 0.2);
+}
+
+@keyframes explainPulse {
+
+    0%,
+    100% {
+        box-shadow: 0 0 0 0 rgba(255, 214, 0, 0.2);
+    }
+
+    50% {
+        box-shadow: 0 0 12px 4px rgba(255, 214, 0, 0.15);
+    }
+}
+
+/* Concept Panel */
+.concept-panel {
+    background: var(--bg-card);
+    border: 1px solid rgba(255, 214, 0, 0.15);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-top: 12px;
+    animation: conceptSlideIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes conceptSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.concept-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.concept-header .section-label {
+    color: var(--accent);
+    font-size: 1rem;
+    font-weight: 700;
+}
+
+.btn-close-concept {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 50%;
+    width: 28px;
+    height: 28px;
+    color: var(--text-secondary);
+    font-size: 14px;
+    cursor: pointer;
+    transition: var(--transition);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.btn-close-concept:hover {
+    background: rgba(239, 68, 68, 0.2);
+    border-color: var(--red);
+    color: var(--red);
+}
+
+/* Concept Steps */
+.concept-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.concept-step {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-left: 3px solid rgba(255, 214, 0, 0.3);
+    border-radius: 10px;
+    padding: 14px 16px;
+    transition: var(--transition);
+}
+
+.concept-step:hover {
+    background: rgba(255, 255, 255, 0.05);
+    border-left-color: var(--accent);
+}
+
+.concept-step.variable-step {
+    border-left-color: rgba(20, 184, 166, 0.4);
+}
+
+.concept-step.variable-step:hover {
+    border-left-color: var(--teal);
+}
+
+.concept-step.active-step {
+    background: rgba(255, 214, 0, 0.08);
+    border-color: rgba(255, 214, 0, 0.3);
+    border-left-color: var(--accent);
+    box-shadow: 0 0 20px rgba(255, 214, 0, 0.1);
+}
+
+.step-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.step-label {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: 0.02em;
+}
+
+.variable-step .step-label {
+    color: var(--teal);
+}
+
+.btn-sign-step {
+    padding: 4px 12px;
+    background: rgba(255, 214, 0, 0.1);
+    border: 1px solid rgba(255, 214, 0, 0.2);
+    border-radius: 14px;
+    color: var(--accent);
+    font-size: 0.72rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--transition);
+    font-family: var(--font);
+}
+
+.btn-sign-step:hover {
+    background: rgba(255, 214, 0, 0.25);
+    border-color: var(--accent);
+    transform: scale(1.05);
+}
+
+.step-text {
+    font-size: 0.88rem;
+    line-height: 1.5;
+    color: var(--text-primary);
+    margin-bottom: 8px;
+}
+
+.step-gloss {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    font-family: 'Courier New', monospace;
+    padding-top: 6px;
+    border-top: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.gloss-label {
+    color: var(--text-muted);
+    font-weight: 600;
+}
+
+.gloss-words {
+    color: var(--text-secondary);
+}
+
+/* Loading & Error States */
+.concept-loading {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 20px;
+    color: var(--text-secondary);
+    font-size: 0.88rem;
+}
+
+.concept-spinner {
+    width: 20px;
+    height: 20px;
+    border: 2px solid rgba(255, 214, 0, 0.2);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.concept-error {
+    padding: 16px;
+    color: var(--red);
+    font-size: 0.88rem;
+}
