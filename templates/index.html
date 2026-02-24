@@ -4,10 +4,10 @@
 <head>
     <meta charset='utf-8'>
     <meta http-equiv='X-UA-Compatible' content='IE=edge'>
-    <title>SignBridge — Text to Sign Language</title>
+    <title>SignBridge — STEM to Sign Language</title>
     <meta name='viewport' content='width=device-width, initial-scale=1'>
     <meta name="description"
-        content="Translate English text to Indian Sign Language (ISL) and American Sign Language (ASL) with 3D avatar animations.">
+        content="Translate STEM educational content to Indian Sign Language (ISL) and American Sign Language (ASL) with 3D avatar animations.">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -21,8 +21,8 @@
 
     <script language="javascript">
         var initCfg = {
-            "avsbsl": ["anna", "marc"],
-            "avSettings": { "avList": "avsbsl", "initAv": "marc" }
+            "avatars": ["marc", "luna"],
+            "avSettings": { "avList": "avatars", "initAv": "marc" }
         };
         var sigmlList = null;
         var tuavatarLoaded = false;
@@ -31,6 +31,10 @@
 </head>
 
 <body onload="CWASA.init(initCfg);">
+    <!-- Hidden SToCA (Server-To-Client Applet) required by CWASA for animation generation -->
+    <div class="SToCA" align="center" style="display:none;"></div>
+    <!-- CWASA loading progress -->
+    <span class="CWASAProgress av0" style="display:none;"></span>
     <script language="javascript">
         function playText(stext) { CWASA.playSiGMLText(stext); }
         function setSiGMLURL(sigmlURL) {
@@ -46,6 +50,34 @@
             CWASA.playSiGMLURL(sigmlURL);
             CWASA.getLogger("myLog", "warn");
         }
+
+        // CWASA event hooks for avatar state management
+        function cwasaStatus(evt) {
+            var msg = evt.msg;
+            console.log("[CWASA STATUS]", msg);
+            if (msg && (msg.indexOf("loaded") !== -1 || msg.indexOf("avatar ready") !== -1 || msg.indexOf("Avatar:") !== -1)) {
+                tuavatarLoaded = true;
+                console.log("[CWASA] Avatar loaded successfully");
+            }
+        }
+        CWASA.addHook("status", cwasaStatus);
+
+        // Track sign completion
+        function cwasaAnimIdle(evt) {
+            console.log("[CWASA] Animation idle - player available");
+            playerAvailableToPlay = true;
+        }
+        CWASA.addHook("animidle", cwasaAnimIdle, 0);
+
+        // Track sign frame updates
+        function cwasaSignFrame(evt) {
+            var msg = evt.msg;
+            var sfElt = document.querySelector('.txtSF.av0');
+            var glElt = document.querySelector('.txtGloss.av0');
+            if (sfElt) sfElt.value = (msg.s + 1) + "/" + (msg.f + 1);
+            if (glElt) glElt.value = msg.g;
+        }
+        CWASA.addHook("avatarsign", cwasaSignFrame, 0);
     </script>
 
     <div class="app-wrapper">
@@ -55,7 +87,7 @@
                 <span class="logo-icon">🤟</span>
                 <h1>SignBridge</h1>
             </div>
-            <p class="subtitle">Translate text into sign language with 3D avatar animations</p>
+            <p class="subtitle">STEM Education → Sign Language with AI-Powered 3D Avatars</p>
         </header>
 
         <!-- Main Content -->
@@ -78,13 +110,30 @@
                     <span id="language-label" class="language-desc">Indian Sign Language</span>
                 </div>
 
-                <!-- Input -->
-                <div class="input-section">
-                    <label class="section-label">Enter Text</label>
+                <!-- Input Mode Tabs -->
+                <div class="input-mode-tabs">
+                    <button class="mode-tab active" data-mode="text" onclick="switchInputMode('text')">
+                        <span>✏️</span> Text Input
+                    </button>
+                    <button class="mode-tab" data-mode="upload" onclick="switchInputMode('upload')">
+                        <span>📄</span> File Upload
+                    </button>
+                    <button class="mode-tab" data-mode="doubt" onclick="switchInputMode('doubt')">
+                        <span>❓</span> Ask Doubt
+                    </button>
+                </div>
+
+                <!-- Text Input Section -->
+                <div id="text-input-section" class="input-section">
+                    <label class="section-label">Enter Text or STEM Formula</label>
                     <form method="POST" id="form" class="input-form">
                         <div class="input-wrapper">
                             <input id="text" type="text" name="text" autocomplete="off"
-                                placeholder="Type a sentence to translate...">
+                                placeholder="e.g. Newton's first law, E=mc², H2O…">
+                            <button type="button" id="btn-mic-text" class="btn-mic" onclick="startVoiceInput('text')"
+                                title="Speak">
+                                🎤
+                            </button>
                             <button id="submit" type="submit">
                                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                                     stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -94,6 +143,87 @@
                             </button>
                         </div>
                     </form>
+                </div>
+
+                <!-- File Upload Section -->
+                <div id="upload-section" class="input-section" style="display:none;">
+                    <label class="section-label">Upload STEM Document</label>
+                    <div id="drop-zone" class="drop-zone">
+                        <div class="drop-zone-content">
+                            <div class="drop-zone-icon">📁</div>
+                            <p class="drop-zone-text">Drag & drop your file here</p>
+                            <p class="drop-zone-hint">or click to browse</p>
+                            <div class="supported-formats">
+                                <span class="format-tag">PDF</span>
+                                <span class="format-tag">DOCX</span>
+                                <span class="format-tag">PPTX</span>
+                                <span class="format-tag">Image</span>
+                                <span class="format-tag">TXT</span>
+                            </div>
+                        </div>
+                        <input type="file" id="file-input" class="file-input-hidden"
+                            accept=".pdf,.docx,.doc,.pptx,.ppt,.txt,.png,.jpg,.jpeg,.bmp,.tiff,.webp">
+                    </div>
+                    <div id="file-preview" class="file-preview" style="display:none;">
+                        <div class="file-preview-header">
+                            <span id="file-name" class="file-name">document.pdf</span>
+                            <button class="btn-clear-file" onclick="clearFile()">✕</button>
+                        </div>
+                        <textarea id="extracted-text" class="extracted-text" rows="5"
+                            placeholder="Extracted text will appear here..."></textarea>
+                        <button class="btn-translate-extracted" onclick="translateExtracted()">
+                            🚀 Translate to Sign Language
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Doubt Clarification Section -->
+                <div id="doubt-section" class="input-section" style="display:none;">
+                    <label class="section-label">Ask a Doubt — Get Answer in Sign Language</label>
+                    <div class="doubt-input-area">
+                        <textarea id="doubt-question" class="doubt-textarea" rows="3"
+                            placeholder="Type or speak your question… e.g. 'What is photosynthesis?'"></textarea>
+                        <div class="doubt-buttons">
+                            <button type="button" id="btn-mic-doubt" class="btn-mic btn-mic-doubt"
+                                onclick="startVoiceInput('doubt-question')" title="Speak your doubt">
+                                🎤 Speak
+                            </button>
+                            <button class="btn-ask-doubt" id="btn-ask-doubt" onclick="askDoubt()">
+                                🧠 Ask & Translate
+                            </button>
+                        </div>
+                    </div>
+                    <div id="doubt-answer-box" class="doubt-answer-box" style="display:none;">
+                        <div class="doubt-answer-header">
+                            <span class="doubt-answer-label">💡 AI Answer</span>
+                            <button class="btn-translate-answer" onclick="translateDoubtAnswer()">
+                                🤟 Translate Answer to Sign
+                            </button>
+                        </div>
+                        <p id="doubt-answer-text" class="doubt-answer-text"></p>
+                    </div>
+                </div>
+
+                <!-- Topic-Wise Mode -->
+                <div class="topic-mode-section">
+                    <div class="topic-mode-header">
+                        <label class="section-label">Topic Mode</label>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="topic-mode-toggle" onchange="toggleTopicMode()">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div id="topic-tabs" class="topic-tabs" style="display:none;">
+                        <button class="topic-tab active" data-topic="definition" onclick="selectTopic('definition')">📖
+                            Definition</button>
+                        <button class="topic-tab" data-topic="formula" onclick="selectTopic('formula')">🔢
+                            Formula</button>
+                        <button class="topic-tab" data-topic="example" onclick="selectTopic('example')">💡
+                            Example</button>
+                    </div>
+                    <div id="topic-content" class="topic-content" style="display:none;">
+                        <p id="topic-text" class="topic-text">Select a section to view...</p>
+                    </div>
                 </div>
 
                 <!-- Output Display -->
@@ -109,7 +239,7 @@
                     </div>
                 </div>
 
-                <!-- Current Word -->
+                <!-- Now Playing -->
                 <div class="now-playing" id="now-playing-section" style="display:none;">
                     <div class="now-playing-dot"></div>
                     <span class="now-playing-label">Now signing:</span>
@@ -117,42 +247,84 @@
                 </div>
             </section>
 
-            <!-- Right Panel: Avatar -->
+            <!-- Right Panel: Avatar + Controls -->
             <section class="avatar-panel">
                 <div class="avatar-card">
                     <a id="player"></a>
                     <div class="avatar-container">
-                        <div class="avatar-inner">
-                            <table align="center" style="width:100%; height:100%;">
-                                <tr align="center">
-                                    <td width="100%" height="90%">
-                                        <div class="CWASAAvatar av0" align="center"></div>
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td align="center">
-                                        <div class="avatar-controls">
-                                            <span class="CWASAAvMenu av0"></span>
-                                            <input type="button" value="▶ Sign"
-                                                class="bttnPlaySiGMLURL av0 avatar-btn" />
-                                            <input type="button" value="⏹ Stop" class="bttnStop av0 avatar-btn" />
-                                            <span class="CWASASpeed av0"></span>
-                                        </div>
-                                        <div class="avatar-info">
-                                            <span>Sign/Frame: <input class="txtSF av0 info-input" value="0/0"
-                                                    type="text"></span>
-                                            <span>Gloss: <input class="txtGloss av0 info-input" value="[none]"
-                                                    type="text"></span>
-                                        </div>
-                                        <span class="spanInfo av0" style="display:none;">
-                                            Status: <input type="text" class="statusExtra av0">
-                                        </span>
-                                        <input type="text" id="URLText" class="txtSiGMLURL av0 undisplayed" value="" />
-                                        <script language="javascript">setSiGMLURL("SignFiles/B.sigml");</script>
-                                    </td>
-                                </tr>
-                            </table>
+                        <div class="avatar-inner" style="position:relative;">
+                            <!-- Subtitle Overlay -->
+                            <div id="subtitle-overlay" class="subtitle-overlay" style="display:none;">
+                                <span id="subtitle-text" class="subtitle-text"></span>
+                            </div>
+                            <!-- CWASA Avatar with fixed pixel dimensions for WebGL -->
+                            <div class="CWASAAvatar av0" align="center"
+                                style="width:384px; height:360px; margin:0 auto;"></div>
+                            <div align="center" style="padding:8px;">
+                                <!-- Avatar character selector (marc/luna) -->
+                                <div class="avatar-selector" style="margin-bottom:8px;">
+                                    <span class="CWASAAvMenu av0"></span>
+                                </div>
+                                <!-- Redundant CWASA controls (hidden) -->
+                                <div class="avatar-controls" style="display:none;">
+                                    <input type="button" value="▶ Sign" class="bttnPlaySiGMLURL av0 avatar-btn" />
+                                    <input type="button" value="⏹ Stop" class="bttnStop av0 avatar-btn" />
+                                    <span class="CWASASpeed av0"></span>
+                                </div>
+                                <div class="avatar-info" style="display:none;">
+                                    <span>Sign/Frame: <input class="txtSF av0 info-input" value="0/0"
+                                            type="text"></span>
+                                    <span>Gloss: <input class="txtGloss av0 info-input" value="[none]"
+                                            type="text"></span>
+                                </div>
+                                <span class="spanInfo av0" style="display:none;">
+                                    Status: <input type="text" class="statusExtra av0">
+                                </span>
+                                <input type="text" id="URLText" class="txtSiGMLURL av0 undisplayed" value="" />
+                                <script language="javascript">setSiGMLURL("SignFiles/B.sigml");</script>
+                            </div>
                         </div>
+                    </div>
+
+                    <!-- Playback Controls -->
+                    <div class="playback-controls">
+                        <button class="pb-btn" id="btn-repeat" onclick="repeatAnimation()" title="Repeat">
+                            🔄
+                        </button>
+                        <button class="pb-btn" id="btn-pause" onclick="togglePause()" title="Pause/Resume">
+                            ⏸️
+                        </button>
+                        <div class="speed-controls">
+                            <span class="speed-label">Speed:</span>
+                            <button class="speed-btn" onclick="setSpeed(0.5)" data-speed="0.5">0.5x</button>
+                            <button class="speed-btn active" onclick="setSpeed(1)" data-speed="1">1x</button>
+                            <button class="speed-btn" onclick="setSpeed(1.5)" data-speed="1.5">1.5x</button>
+                            <button class="speed-btn" onclick="setSpeed(2)" data-speed="2">2x</button>
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="action-buttons">
+                        <button class="action-btn" id="btn-save" onclick="saveLessonLocal()">
+                            💾 Save Lesson
+                        </button>
+                        <button class="action-btn" id="btn-export" onclick="exportLesson()">
+                            📦 Export JSON
+                        </button>
+                        <button class="action-btn" id="btn-history" onclick="toggleHistory()">
+                            📜 History
+                        </button>
+                    </div>
+                </div>
+
+                <!-- History Panel -->
+                <div id="history-panel" class="history-panel" style="display:none;">
+                    <div class="history-header">
+                        <label class="section-label">Translation History</label>
+                        <button class="btn-close-history" onclick="toggleHistory()">✕</button>
+                    </div>
+                    <div id="history-list" class="history-list">
+                        <p class="history-empty">No translations yet...</p>
                     </div>
                 </div>
             </section>
@@ -160,7 +332,7 @@
 
         <!-- Footer -->
         <footer class="app-footer">
-            <p>Built for STEM education accessibility &bull; Powered by Stanza NLP + CWASA Avatar</p>
+            <p>Built for STEM Education Accessibility &bull; Powered by Groq AI + CWASA Avatar</p>
         </footer>
     </div>
 

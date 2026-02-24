@@ -11,3 +11,5 @@ CoreNLP/
 .pytest_cache/
 .vscode/
 .idea/
+uploads/
+history.json
