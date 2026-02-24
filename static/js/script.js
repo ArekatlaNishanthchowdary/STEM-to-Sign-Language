@@ -401,11 +401,32 @@ function display_isl_text(words) {
     var p = document.getElementById('isl_text');
     if (words['_display']) {
         lastGlossDisplay = words['_display'];
-        // Create spans for each word for highlighting
+        // Build wordArray-aligned spans
+        // wordArray has individual letters for fingerspelled words
+        // _display has grouped words like "E-I-N-S-T-E-I-N"
         var displayWords = words['_display'].split(' ');
         var html = '';
-        displayWords.forEach(function (word, index) {
-            html += '<span class="gloss-word" data-index="' + index + '">' + word + '</span> ';
+        var arrIdx = 0; // tracks position in wordArray
+
+        displayWords.forEach(function (displayWord) {
+            // Check if this is a fingerspelled word (letters joined by hyphens)
+            var parts = displayWord.split('-');
+            var isFingerspelled = parts.length > 1 && parts.every(function (p) { return p.length <= 2; });
+
+            if (isFingerspelled) {
+                // Each letter gets its own highlightable span
+                html += '<span class="gloss-group">';
+                parts.forEach(function (letter, i) {
+                    html += '<span class="gloss-word gloss-letter" data-index="' + arrIdx + '">' + letter + '</span>';
+                    if (i < parts.length - 1) html += '<span class="gloss-dash">-</span>';
+                    arrIdx++;
+                });
+                html += '</span> ';
+            } else {
+                // Whole word is one span
+                html += '<span class="gloss-word" data-index="' + arrIdx + '">' + displayWord + '</span> ';
+                arrIdx++;
+            }
         });
         p.innerHTML = html;
     } else {
@@ -729,3 +750,180 @@ var loadingTout = setInterval(function () {
         console.log('Avatar loaded successfully!');
     }
 }, 1500);
+
+// ============================================
+// Buttermax-Style Interactive Experience (Optimized)
+// ============================================
+
+document.addEventListener('DOMContentLoaded', () => {
+
+    // ---- Shared State ----
+    let mouseX = 0, mouseY = 0;
+    let outlineX = 0, outlineY = 0;
+    let ticking = false;
+
+    const cursorDot = document.querySelector('.cursor-dot');
+    const cursorOutline = document.querySelector('.cursor-outline');
+
+    // ---- Single RAF Loop for all continuous animations ----
+    function tick() {
+        // Cursor outline smooth follow
+        if (cursorDot && cursorOutline) {
+            outlineX += (mouseX - outlineX) * 0.15;
+            outlineY += (mouseY - outlineY) * 0.15;
+            cursorOutline.style.transform = `translate3d(${outlineX - 22}px, ${outlineY - 22}px, 0)`;
+        }
+        requestAnimationFrame(tick);
+    }
+    tick();
+
+    // ---- Mouse Tracking (passive, minimal work) ----
+    window.addEventListener('mousemove', (e) => {
+        mouseX = e.clientX;
+        mouseY = e.clientY;
+        if (cursorDot) {
+            cursorDot.style.transform = `translate3d(${mouseX - 4}px, ${mouseY - 4}px, 0)`;
+        }
+    }, { passive: true });
+
+    // ---- Cursor Hover State ----
+    if (cursorDot && cursorOutline) {
+        document.querySelectorAll('button, a, input, select, textarea').forEach(el => {
+            el.addEventListener('mouseenter', () => document.body.classList.add('cursor-hover'), { passive: true });
+            el.addEventListener('mouseleave', () => document.body.classList.remove('cursor-hover'), { passive: true });
+        });
+    }
+
+    // ---- 3D Card Tilt (RAF-throttled) ----
+    document.querySelectorAll('.language-selector, .input-section, .output-section, .avatar-card').forEach(card => {
+        let tiltRAF = null;
+
+        card.addEventListener('mousemove', (e) => {
+            if (tiltRAF) return; // skip if a frame is already pending
+            tiltRAF = requestAnimationFrame(() => {
+                const rect = card.getBoundingClientRect();
+                const rotateX = ((e.clientY - rect.top - rect.height / 2) / rect.height) * -4;
+                const rotateY = ((e.clientX - rect.left - rect.width / 2) / rect.width) * 4;
+                card.style.transform = `perspective(800px) rotateX(${rotateX}deg) rotateY(${rotateY}deg)`;
+                tiltRAF = null;
+            });
+        }, { passive: true });
+
+        card.addEventListener('mouseleave', () => {
+            if (tiltRAF) { cancelAnimationFrame(tiltRAF); tiltRAF = null; }
+            card.style.transform = '';
+        }, { passive: true });
+    });
+
+    // ---- Magnetic Buttons (RAF-throttled) ----
+    document.querySelectorAll('.action-btn, .pb-btn').forEach(btn => {
+        let magRAF = null;
+
+        btn.addEventListener('mousemove', (e) => {
+            if (magRAF) return;
+            magRAF = requestAnimationFrame(() => {
+                const rect = btn.getBoundingClientRect();
+                const dx = (e.clientX - rect.left - rect.width / 2) * 0.15;
+                const dy = (e.clientY - rect.top - rect.height / 2) * 0.15;
+                btn.style.transform = `translate3d(${dx}px, ${dy}px, 0)`;
+                magRAF = null;
+            });
+        }, { passive: true });
+
+        btn.addEventListener('mouseleave', () => {
+            if (magRAF) { cancelAnimationFrame(magRAF); magRAF = null; }
+            btn.style.transform = '';
+        }, { passive: true });
+    });
+
+    // ---- Text Scramble on Logo (only runs on hover, no perf cost) ----
+    const logoH1 = document.querySelector('.logo h1');
+    if (logoH1) {
+        const originalText = logoH1.textContent;
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+        let scrambleInterval = null;
+
+        logoH1.addEventListener('mouseenter', () => {
+            let iteration = 0;
+            clearInterval(scrambleInterval);
+            scrambleInterval = setInterval(() => {
+                logoH1.textContent = originalText.split('').map((char, idx) => {
+                    if (idx < iteration) return originalText[idx];
+                    return chars[Math.floor(Math.random() * chars.length)];
+                }).join('');
+                iteration += 0.5;
+                if (iteration >= originalText.length) {
+                    clearInterval(scrambleInterval);
+                    logoH1.textContent = originalText;
+                }
+            }, 40);
+        });
+    }
+
+    // ---- GSAP Entrance Animations (one-shot, no ongoing cost) ----
+    if (window.gsap) {
+        const allAnimated = '.logo-icon, .logo h1, .subtitle, .language-selector, .input-mode-tabs, #text-input-section, .output-section, .avatar-card, .app-footer, .mode-tab';
+
+        const tl = gsap.timeline({
+            defaults: { ease: 'power4.out', duration: 0.8 },
+            onComplete: () => {
+                document.querySelectorAll(allAnimated).forEach(el => {
+                    el.style.opacity = '1';
+                    el.style.transform = '';
+                });
+            }
+        });
+
+        tl.fromTo('.logo-icon', { scale: 0, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.6, clearProps: 'all' })
+            .fromTo('.logo h1', { y: 30, opacity: 0 }, { y: 0, opacity: 1, clearProps: 'all' }, '-=0.3')
+            .fromTo('.subtitle', { y: 15, opacity: 0 }, { y: 0, opacity: 1, clearProps: 'all' }, '-=0.5')
+            .fromTo('.language-selector', { x: -40, opacity: 0 }, { x: 0, opacity: 1, clearProps: 'all' }, '-=0.4')
+            .fromTo('.input-mode-tabs', { x: -30, opacity: 0 }, { x: 0, opacity: 1, clearProps: 'all' }, '-=0.6')
+            .fromTo('#text-input-section', { y: 20, opacity: 0 }, { y: 0, opacity: 1, clearProps: 'opacity,transform' }, '-=0.5')
+            .fromTo('.output-section', { y: 20, opacity: 0 }, { y: 0, opacity: 1, clearProps: 'all' }, '-=0.6')
+            .fromTo('.avatar-card', { x: 40, opacity: 0 }, { x: 0, opacity: 1, clearProps: 'all' }, '-=0.7')
+            .fromTo('.app-footer', { opacity: 0 }, { opacity: 1, clearProps: 'all' }, '-=0.4');
+
+        gsap.fromTo('.mode-tab',
+            { scale: 0.9, opacity: 0 },
+            { scale: 1, opacity: 1, duration: 0.4, stagger: 0.08, delay: 0.5, ease: 'back.out(1.5)', clearProps: 'all' }
+        );
+
+        // Safety fallback
+        setTimeout(() => {
+            document.querySelectorAll(allAnimated).forEach(el => {
+                el.style.opacity = '1';
+                el.style.visibility = 'visible';
+            });
+        }, 2500);
+    }
+
+    // ---- Particle Burst on Submit (lightweight, 8 particles) ----
+    const submitBtn = document.getElementById('submit');
+    if (submitBtn) {
+        submitBtn.addEventListener('click', (e) => {
+            for (let i = 0; i < 8; i++) {
+                const particle = document.createElement('div');
+                particle.style.cssText = `position:fixed;width:5px;height:5px;background:#FFD600;border-radius:50%;pointer-events:none;z-index:99999;left:${e.clientX}px;top:${e.clientY}px;`;
+                document.body.appendChild(particle);
+
+                const angle = (Math.PI * 2 * i) / 8;
+                const v = 50 + Math.random() * 60;
+
+                if (window.gsap) {
+                    gsap.to(particle, {
+                        x: Math.cos(angle) * v,
+                        y: Math.sin(angle) * v,
+                        opacity: 0, scale: 0,
+                        duration: 0.5,
+                        ease: 'power3.out',
+                        onComplete: () => particle.remove()
+                    });
+                } else {
+                    setTimeout(() => particle.remove(), 600);
+                }
+            }
+        });
+    }
+});
+

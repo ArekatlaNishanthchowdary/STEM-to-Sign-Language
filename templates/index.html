@@ -13,6 +13,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"
         integrity="sha256-/xUj+3OJU5yExlq6GSYGSHk7tPXikynS7ogEvDej/m4=" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
     <link rel='stylesheet' type='text/css' media='screen' href="{{url_for('static',filename='./style.css')}}">
 
     <meta http-equiv="Access-Control-Allow-Methods" content="GET">
@@ -31,6 +32,13 @@
 </head>
 
 <body onload="CWASA.init(initCfg);">
+    <!-- Custom Cursor -->
+    <div class="cursor-dot"></div>
+    <div class="cursor-outline"></div>
+
+    <!-- Interactive 3D Background -->
+    <div id="vanta-bg"></div>
+
     <!-- Hidden SToCA (Server-To-Client Applet) required by CWASA for animation generation -->
     <div class="SToCA" align="center" style="display:none;"></div>
     <!-- CWASA loading progress -->
@@ -253,10 +261,6 @@
                     <a id="player"></a>
                     <div class="avatar-container">
                         <div class="avatar-inner" style="position:relative;">
-                            <!-- Subtitle Overlay -->
-                            <div id="subtitle-overlay" class="subtitle-overlay" style="display:none;">
-                                <span id="subtitle-text" class="subtitle-text"></span>
-                            </div>
                             <!-- CWASA Avatar with fixed pixel dimensions for WebGL -->
                             <div class="CWASAAvatar av0" align="center"
                                 style="width:384px; height:360px; margin:0 auto;"></div>
@@ -284,6 +288,11 @@
                                 <script language="javascript">setSiGMLURL("SignFiles/B.sigml");</script>
                             </div>
                         </div>
+                    </div>
+
+                    <!-- Subtitle Overlay (between avatar and controls) -->
+                    <div id="subtitle-overlay" class="subtitle-overlay" style="display:none;">
+                        <span id="subtitle-text" class="subtitle-text"></span>
                     </div>
 
                     <!-- Playback Controls -->
@@ -336,7 +345,29 @@
         </footer>
     </div>
 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vanta@latest/dist/vanta.net.min.js"></script>
     <script type="text/javascript" src="{{ url_for('static', filename='js/script.js') }}"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            VANTA.NET({
+                el: "#vanta-bg",
+                mouseControls: true,
+                touchControls: true,
+                gyroControls: false,
+                minHeight: 200.00,
+                minWidth: 200.00,
+                scale: 1.00,
+                scaleMobile: 1.00,
+                color: 0xFFD600, // Gold Buttermax accent
+                backgroundColor: 0x000000, // Pure void black
+                points: 10.00,
+                maxDistance: 22.00,
+                spacing: 25.00,
+                showDots: true
+            });
+        });
+    </script>
 </body>
 
 </html>
