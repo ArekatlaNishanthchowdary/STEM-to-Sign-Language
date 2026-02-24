@@ -1433,25 +1433,6 @@ html {
     letter-spacing: 1px;
 }
 
-.doubt-buttons {
-    display: flex;
-    gap: 8px;
-    margin-top: 8px;
-}
-
-.doubt-buttons .btn-ask-doubt {
-    flex: 1;
-}
-.doubt-buttons {
-    display: flex;
-    gap: 8px;
-    margin-top: 8px;
-}
-
-.doubt-buttons .btn-ask-doubt {
-    flex: 1;
-}
-
 /* ============ Sign Frame Gallery ============ */
 
 .sign-gallery {
