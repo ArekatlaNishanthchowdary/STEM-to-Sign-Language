@@ -2,7 +2,7 @@
 // SignBridge — Full Script (All 6 Features)
 // ============================================
 
-var currentLanguage = 'isl';
+var currentLanguage = 'asl';
 var wordArray = [];
 var playbackSpeed = 1;
 var isPaused = false;
@@ -16,6 +16,26 @@ var activeRecognition = null;
 var galleryFrames = [];
 var galleryCaptureCount = 0;
 var lightboxIndex = 0;
+var currentFormulaInput = '';
+var currentFormulaKey = '';
+var conceptStepsData = [];
+
+// Sign Learning Challenge state
+var currentLearnCategory = '';
+var learnWords = [];
+var currentLearnIndex = 0;
+var quizQuestions = [];
+var currentQuizIndex = 0;
+var currentQuizScore = 0;
+var quizCorrectIndex = -1;
+var quizAnswered = false;
+var quizCategoryName = '';
+
+// Paragraph Mode state
+var paragraphSentences = [];
+var paragraphResults = [];
+var currentSentenceIndex = 0;
+var autoplayEnabled = false;
 
 // ============================================
 // Voice Input (Web Speech API)
@@ -105,6 +125,11 @@ function switchInputMode(mode) {
     document.getElementById('text-input-section').style.display = mode === 'text' ? 'block' : 'none';
     document.getElementById('upload-section').style.display = mode === 'upload' ? 'block' : 'none';
     document.getElementById('doubt-section').style.display = mode === 'doubt' ? 'block' : 'none';
+    document.getElementById('quiz-section').style.display = mode === 'quiz' ? 'block' : 'none';
+
+    if (mode === 'quiz') {
+        loadCategories();
+    }
 }
 
 // ============================================
@@ -345,6 +370,19 @@ function submitTranslation(text) {
     if (!text.trim()) return;
 
     lastTranslationInput = text;
+
+    // Check if text has multiple sentences
+    var sentences = splitIntoSentences(text);
+    if (sentences.length > 1) {
+        // Paragraph mode
+        startParagraphMode(sentences);
+        return;
+    }
+
+    // Single sentence mode
+    document.getElementById('sentence-nav').style.display = 'none';
+    paragraphSentences = [];
+    paragraphResults = [];
     document.getElementById('isl_text').textContent = 'Translating...';
 
     $.ajax({
@@ -359,6 +397,22 @@ function submitTranslation(text) {
             play_each_word();
             display_isl_text(res);
             checkForSTEM(res);
+
+            // Show "Explain This" button if formula detected
+            var btnExplain = document.getElementById('btn-explain');
+            if (res._is_formula) {
+                currentFormulaInput = res._formula_input || '';
+                currentFormulaKey = res._formula_key || '';
+                btnExplain.style.display = 'inline-flex';
+            } else {
+                currentFormulaInput = '';
+                currentFormulaKey = '';
+                btnExplain.style.display = 'none';
+            }
+
+            // Track learning progress
+            trackTranslation(wordArray);
+            document.getElementById('concept-panel').style.display = 'none';
         },
         error: function (xhr) {
             document.getElementById('isl_text').textContent = 'Error occurred. Please try again.';
@@ -375,6 +429,86 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 
 // ============================================
+// Concept Understanding Mode
+// ============================================
+
+function explainConcept() {
+    if (!currentFormulaInput) return;
+
+    var panel = document.getElementById('concept-panel');
+    var stepsContainer = document.getElementById('concept-steps');
+    var title = document.getElementById('concept-title');
+
+    // Show panel with loading state
+    panel.style.display = 'block';
+    title.textContent = 'Loading explanation...';
+    stepsContainer.innerHTML = '<div class="concept-loading"><div class="concept-spinner"></div> Generating step-by-step explanation...</div>';
+
+    // Scroll to panel
+    panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+    $.ajax({
+        url: '/explain',
+        type: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify({
+            formula: currentFormulaInput,
+            formula_key: currentFormulaKey,
+            language: currentLanguage
+        }),
+        success: function (res) {
+            conceptStepsData = res.steps || [];
+            title.textContent = res.formula_name || res.formula;
+
+            var html = '';
+            res.steps.forEach(function (step, index) {
+                var isVariable = step.label.indexOf('means') > -1;
+                var stepClass = isVariable ? 'concept-step variable-step' : 'concept-step';
+
+                html += '<div class="' + stepClass + '" id="concept-step-' + index + '">';
+                html += '  <div class="step-header">';
+                html += '    <span class="step-label">' + step.label + '</span>';
+                html += '    <button class="btn-sign-step" onclick="signExplanationStep(' + index + ')" title="Sign this step">🤟 Sign</button>';
+                html += '  </div>';
+                html += '  <p class="step-text">' + step.text + '</p>';
+                html += '  <div class="step-gloss">';
+                html += '    <span class="gloss-label">Sign Gloss:</span> ';
+                html += '    <span class="gloss-words">' + (step.gloss || '') + '</span>';
+                html += '  </div>';
+                html += '</div>';
+            });
+
+            stepsContainer.innerHTML = html;
+        },
+        error: function (xhr) {
+            var err = xhr.responseJSON ? xhr.responseJSON.error : 'Failed to explain';
+            stepsContainer.innerHTML = '<div class="concept-error">❌ ' + err + '</div>';
+        }
+    });
+}
+
+function closeConceptPanel() {
+    document.getElementById('concept-panel').style.display = 'none';
+}
+
+function signExplanationStep(index) {
+    if (!conceptStepsData[index] || !conceptStepsData[index].sigml) return;
+
+    var stepSigml = conceptStepsData[index].sigml;
+
+    // Highlight active step
+    document.querySelectorAll('.concept-step').forEach(function (el) {
+        el.classList.remove('active-step');
+    });
+    document.getElementById('concept-step-' + index).classList.add('active-step');
+
+    // Load into avatar
+    convert_json_to_arr(stepSigml);
+    display_isl_text(stepSigml);
+    play_each_word();
+}
+
+// ============================================
 // STEM Badge Detection
 // ============================================
 
@@ -384,7 +518,7 @@ function checkForSTEM(words) {
     var hasSingleLetters = false;
 
     Object.keys(words).forEach(function (key) {
-        if (key === '_display') return;
+        if (key.startsWith('_')) return;
         if (words[key].length === 1) {
             consecutiveLetters++;
             if (consecutiveLetters >= 3) hasSingleLetters = true;
@@ -435,7 +569,7 @@ function display_isl_text(words) {
     } else {
         p.textContent = '';
         Object.keys(words).forEach(function (key) {
-            if (key === '_display') return;
+            if (key.startsWith('_')) return;
             p.textContent += words[key] + ' ';
         });
     }
@@ -496,7 +630,7 @@ function display_err_message() {
 function convert_json_to_arr(words) {
     wordArray = [];
     Object.keys(words).forEach(function (key) {
-        if (key !== '_display') {
+        if (!key.startsWith('_')) {
             wordArray.push(words[key]);
         }
     });
@@ -1118,31 +1252,482 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ---- Particle Burst on Submit (lightweight, 8 particles) ----
+    // ---- Particle Burst on Submit (reusable function) ----
     const submitBtn = document.getElementById('submit');
     if (submitBtn) {
         submitBtn.addEventListener('click', (e) => {
-            for (let i = 0; i < 8; i++) {
-                const particle = document.createElement('div');
-                particle.style.cssText = `position:fixed;width:5px;height:5px;background:#FFD600;border-radius:50%;pointer-events:none;z-index:99999;left:${e.clientX}px;top:${e.clientY}px;`;
-                document.body.appendChild(particle);
-
-                const angle = (Math.PI * 2 * i) / 8;
-                const v = 50 + Math.random() * 60;
-
-                if (window.gsap) {
-                    gsap.to(particle, {
-                        x: Math.cos(angle) * v,
-                        y: Math.sin(angle) * v,
-                        opacity: 0, scale: 0,
-                        duration: 0.5,
-                        ease: 'power3.out',
-                        onComplete: () => particle.remove()
-                    });
-                } else {
-                    setTimeout(() => particle.remove(), 600);
-                }
-            }
+            createParticles(submitBtn);
         });
     }
 });
 
+// ============================================
+// Sign Learning Challenge Functions
+// ============================================
+
+function loadCategories() {
+    // Show picker, hide panels
+    document.getElementById('quiz-category-picker').style.display = 'block';
+    document.getElementById('quiz-learn-panel').style.display = 'none';
+    document.getElementById('quiz-test-panel').style.display = 'none';
+    document.getElementById('quiz-results-panel').style.display = 'none';
+
+    $.ajax({
+        url: '/learn/categories',
+        type: 'GET',
+        success: function (res) {
+            var grid = document.getElementById('category-grid');
+            grid.innerHTML = '';
+            res.forEach(function (cat) {
+                var card = document.createElement('div');
+                card.className = 'category-card';
+                card.onclick = function () { startLearning(cat.name); };
+                card.innerHTML = `
+                    <div class="cat-name">${cat.name}</div>
+                    <div class="cat-count">${cat.count} words</div>
+                `;
+                grid.appendChild(card);
+            });
+        },
+        error: function () {
+            document.getElementById('category-grid').innerHTML = '<div class="error">Failed to load categories.</div>';
+        }
+    });
+}
+
+function startLearning(category) {
+    currentLearnCategory = category;
+    quizCategoryName = category;
+    currentLearnIndex = 0;
+
+    $.ajax({
+        url: '/learn/words',
+        type: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify({ category: category }),
+        success: function (res) {
+            learnWords = res;
+            document.getElementById('quiz-category-picker').style.display = 'none';
+            document.getElementById('quiz-learn-panel').style.display = 'block';
+            document.getElementById('learn-total').textContent = learnWords.length;
+            renderLearnWord();
+        }
+    });
+}
+
+function renderLearnWord() {
+    var item = learnWords[currentLearnIndex];
+    document.getElementById('learn-current').textContent = currentLearnIndex + 1;
+    document.getElementById('learn-word-text').textContent = item.word.toUpperCase();
+
+    // Play the sign
+    convert_json_to_arr(item.sigml);
+    play_each_word();
+}
+
+function replayLearnWord() {
+    if (learnWords[currentLearnIndex]) {
+        convert_json_to_arr(learnWords[currentLearnIndex].sigml);
+        play_each_word();
+    }
+}
+
+function nextLearnWord() {
+    currentLearnIndex++;
+    if (currentLearnIndex < learnWords.length) {
+        renderLearnWord();
+    } else {
+        // All words learned, move to Quiz
+        startQuiz();
+    }
+}
+
+function backToCategories() {
+    loadCategories();
+}
+
+function startQuiz() {
+    currentQuizIndex = 0;
+    currentQuizScore = 0;
+
+    document.getElementById('quiz-learn-panel').style.display = 'none';
+    document.getElementById('quiz-test-panel').style.display = 'block';
+    document.getElementById('quiz-total').textContent = '5'; // We do 5 questions
+
+    loadQuizQuestion();
+}
+
+function loadQuizQuestion() {
+    quizAnswered = false;
+    document.getElementById('quiz-current').textContent = currentQuizIndex + 1;
+    document.getElementById('quiz-score-num').textContent = currentQuizScore;
+    document.getElementById('quiz-test-feedback').style.display = 'none';
+    document.getElementById('btn-quiz-next-q').style.display = 'none';
+
+    // Reset option states
+    document.querySelectorAll('.quiz-option').forEach(btn => {
+        btn.className = 'quiz-option';
+        btn.disabled = false;
+    });
+
+    $.ajax({
+        url: '/learn/quiz',
+        type: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify({ category: quizCategoryName }),
+        success: function (res) {
+            quizCorrectIndex = res.correct_index;
+            quizSigml = res.sigml;
+
+            var options = document.querySelectorAll('.quiz-option');
+            res.options.forEach((opt, i) => {
+                options[i].textContent = opt.toUpperCase();
+            });
+
+            // Play the sign
+            convert_json_to_arr(res.sigml);
+            play_each_word();
+        }
+    });
+}
+
+function replayQuizWord() {
+    if (quizSigml) {
+        convert_json_to_arr(quizSigml);
+        play_each_word();
+    }
+}
+
+function selectQuizOption(index) {
+    if (quizAnswered) return;
+    quizAnswered = true;
+
+    var feedback = document.getElementById('quiz-test-feedback');
+    feedback.style.display = 'block';
+
+    var options = document.querySelectorAll('.quiz-option');
+    options.forEach(btn => btn.disabled = true);
+
+    if (index === quizCorrectIndex) {
+        currentQuizScore++;
+        options[index].classList.add('correct');
+        feedback.className = 'quiz-test-feedback quiz-correct';
+        feedback.innerHTML = '🎉 Correct!';
+
+        // 5. Secondary effects
+        try {
+            createParticles(options[index]);
+        } catch (e) {
+            console.error("Particle error:", e);
+        }
+    } else {
+        options[index].classList.add('wrong');
+        options[quizCorrectIndex].classList.add('correct');
+        feedback.className = 'quiz-test-feedback quiz-wrong';
+        feedback.innerHTML = '❌ Not quite. This is the sign for: <strong>' + options[quizCorrectIndex].textContent + '</strong>';
+
+        // Replay correct sign so they learn
+        setTimeout(replayQuizWord, 500);
+    }
+
+    // 6. Update core UI
+    document.getElementById('quiz-score-num').textContent = currentQuizScore;
+    document.getElementById('btn-quiz-next-q').style.display = 'block';
+}
+
+function nextQuizQuestion() {
+    currentQuizIndex++;
+    if (currentQuizIndex < 5) {
+        loadQuizQuestion();
+    } else {
+        showQuizResults();
+    }
+}
+
+function showQuizResults() {
+    document.getElementById('quiz-test-panel').style.display = 'none';
+    document.getElementById('quiz-results-panel').style.display = 'block';
+
+    document.getElementById('results-score-final').textContent = currentQuizScore;
+    document.getElementById('results-total-final').textContent = '5';
+
+    var msg = "Great job!";
+    if (currentQuizScore === 5) msg = "Perfect Score! You're a natural sign language user! 🏅";
+    else if (currentQuizScore >= 3) msg = "Well done! You have a good memory for signs. 🌟";
+    else msg = "Good effort! Keep practicing and you'll get them all next time. 📚";
+
+    document.getElementById('results-message').textContent = msg;
+
+    // Track in original learning progress too
+    trackQuizResult(currentQuizScore >= 4, currentQuizScore * 10, currentQuizScore);
+}
+
+function restartCategory() {
+    startLearning(quizCategoryName);
+}
+
+// Reusable particle effect for buttons
+function createParticles(el) {
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const x = rect.left + rect.width / 2;
+    const y = rect.top + rect.height / 2;
+
+    for (let i = 0; i < 12; i++) {
+        const particle = document.createElement('div');
+        particle.style.cssText = `position:fixed;width:6px;height:6px;background:#FFD600;border-radius:50%;pointer-events:none;z-index:99999;left:${x}px;top:${y}px;`;
+        document.body.appendChild(particle);
+
+        const angle = (Math.PI * 2 * i) / 12;
+        const v = 60 + Math.random() * 80;
+
+        if (window.gsap) {
+            gsap.to(particle, {
+                x: Math.cos(angle) * v,
+                y: Math.sin(angle) * v,
+                opacity: 0, scale: 0,
+                duration: 0.6,
+                ease: 'power3.out',
+                onComplete: () => particle.remove()
+            });
+        } else {
+            setTimeout(() => particle.remove(), 600);
+        }
+    }
+}
+
+// ============================================
+// Learning Progress Tracking
+// ============================================
+
+function getProgress() {
+    var data = localStorage.getItem('signbridge_progress');
+    if (data) {
+        return JSON.parse(data);
+    }
+    return {
+        translations: 0,
+        wordsLearned: [],
+        quizPlayed: 0,
+        quizCorrect: 0,
+        bestStreak: 0,
+        totalScore: 0,
+        recentWords: []
+    };
+}
+
+function saveProgress(progress) {
+    localStorage.setItem('signbridge_progress', JSON.stringify(progress));
+}
+
+function trackTranslation(words) {
+    var progress = getProgress();
+    progress.translations++;
+
+    // Track unique words learned
+    words.forEach(function (word) {
+        if (word && word.length > 1 && progress.wordsLearned.indexOf(word.toLowerCase()) === -1) {
+            progress.wordsLearned.push(word.toLowerCase());
+        }
+    });
+
+    // Track recent words (last 30)
+    words.forEach(function (word) {
+        if (word && word.length > 1) {
+            // Remove duplicates, add to front
+            progress.recentWords = progress.recentWords.filter(function (w) { return w !== word.toLowerCase(); });
+            progress.recentWords.unshift(word.toLowerCase());
+        }
+    });
+    if (progress.recentWords.length > 30) {
+        progress.recentWords = progress.recentWords.slice(0, 30);
+    }
+
+    saveProgress(progress);
+}
+
+function trackQuizResult(correct, score, streak) {
+    var progress = getProgress();
+    progress.quizPlayed++;
+    if (correct) progress.quizCorrect++;
+    progress.totalScore = score;
+    if (streak > progress.bestStreak) progress.bestStreak = streak;
+    saveProgress(progress);
+}
+
+function toggleProgress() {
+    var panel = document.getElementById('progress-panel');
+    if (panel.style.display === 'none') {
+        panel.style.display = 'block';
+        renderProgress();
+    } else {
+        panel.style.display = 'none';
+    }
+}
+
+function renderProgress() {
+    var progress = getProgress();
+
+    document.getElementById('stat-translations').textContent = progress.translations;
+    document.getElementById('stat-words-learned').textContent = progress.wordsLearned.length;
+    document.getElementById('stat-quiz-played').textContent = progress.quizPlayed;
+    document.getElementById('stat-quiz-correct').textContent = progress.quizCorrect;
+    document.getElementById('stat-best-streak').textContent = progress.bestStreak;
+    document.getElementById('stat-total-score').textContent = progress.totalScore;
+
+    // Render recent word chips
+    var container = document.getElementById('progress-word-chips');
+    if (progress.recentWords.length === 0) {
+        container.innerHTML = '<span class="progress-empty">No words yet \u2014 start translating!</span>';
+    } else {
+        var html = '';
+        progress.recentWords.slice(0, 20).forEach(function (word) {
+            html += '<span class="progress-chip">' + word.toUpperCase() + '</span>';
+        });
+        container.innerHTML = html;
+    }
+}
+
+function resetProgress() {
+    if (!confirm('Reset all learning progress? This cannot be undone.')) return;
+    localStorage.removeItem('signbridge_progress');
+    quizScore = 0;
+    quizStreak = 0;
+    quizBest = 0;
+    document.getElementById('quiz-score').textContent = '0';
+    document.getElementById('quiz-streak').textContent = '0 \ud83d\udd25';
+    document.getElementById('quiz-best').textContent = '0 \u2b50';
+    renderProgress();
+}
+
+// ============================================
+// Paragraph Mode — Multi-Sentence Translation
+// ============================================
+
+function splitIntoSentences(text) {
+    // Split on period, exclamation, question mark, or newlines
+    var raw = text.split(/(?<=[.!?])\s+|\n+/);
+    var sentences = [];
+    raw.forEach(function (s) {
+        var trimmed = s.trim();
+        if (trimmed.length > 0) {
+            sentences.push(trimmed);
+        }
+    });
+    return sentences;
+}
+
+function startParagraphMode(sentences) {
+    paragraphSentences = sentences;
+    paragraphResults = new Array(sentences.length).fill(null);
+    currentSentenceIndex = 0;
+
+    // Show navigator
+    document.getElementById('sentence-nav').style.display = 'flex';
+    document.getElementById('sentence-total').textContent = sentences.length;
+    updateSentenceNav();
+
+    // Show first sentence info
+    document.getElementById('isl_text').textContent = 'Translating sentence 1/' + sentences.length + '...';
+
+    // Translate first sentence
+    translateSentenceAt(0);
+}
+
+function translateSentenceAt(index) {
+    if (index < 0 || index >= paragraphSentences.length) return;
+
+    currentSentenceIndex = index;
+    updateSentenceNav();
+
+    // If already translated, just replay
+    if (paragraphResults[index]) {
+        playSentence(index);
+        return;
+    }
+
+    document.getElementById('isl_text').textContent = 'Translating sentence ' + (index + 1) + '/' + paragraphSentences.length + '...';
+
+    $.ajax({
+        url: '/',
+        type: 'POST',
+        data: {
+            text: paragraphSentences[index],
+            language: currentLanguage
+        },
+        success: function (res) {
+            paragraphResults[index] = res;
+            playSentence(index);
+
+            // Track
+            convert_json_to_arr(res);
+            trackTranslation(wordArray);
+        },
+        error: function () {
+            document.getElementById('isl_text').textContent = 'Error translating sentence ' + (index + 1);
+        }
+    });
+}
+
+function playSentence(index) {
+    var res = paragraphResults[index];
+    if (!res) return;
+
+    convert_json_to_arr(res);
+    play_each_word();
+    display_isl_text(res);
+    checkForSTEM(res);
+
+    // Update UI
+    document.getElementById('sentence-current').textContent = index + 1;
+
+    // Auto-advance after playback ends (if autoplay is on)
+    if (autoplayEnabled) {
+        var totalDuration = wordArray.length * (800 / playbackSpeed) + 1500;
+        setTimeout(function () {
+            if (autoplayEnabled && currentSentenceIndex < paragraphSentences.length - 1) {
+                nextSentence();
+            } else {
+                autoplayEnabled = false;
+                document.getElementById('btn-autoplay').textContent = '▶ Auto';
+                document.getElementById('btn-autoplay').classList.remove('autoplay-active');
+            }
+        }, totalDuration);
+    }
+}
+
+function prevSentence() {
+    if (currentSentenceIndex > 0) {
+        translateSentenceAt(currentSentenceIndex - 1);
+    }
+}
+
+function nextSentence() {
+    if (currentSentenceIndex < paragraphSentences.length - 1) {
+        translateSentenceAt(currentSentenceIndex + 1);
+    }
+}
+
+function toggleAutoplay() {
+    autoplayEnabled = !autoplayEnabled;
+    var btn = document.getElementById('btn-autoplay');
+    if (autoplayEnabled) {
+        btn.textContent = '⏸ Stop';
+        btn.classList.add('autoplay-active');
+        // Start playing from current sentence
+        if (paragraphResults[currentSentenceIndex]) {
+            playSentence(currentSentenceIndex);
+        } else {
+            translateSentenceAt(currentSentenceIndex);
+        }
+    } else {
+        btn.textContent = '▶ Auto';
+        btn.classList.remove('autoplay-active');
+    }
+}
+
+function updateSentenceNav() {
+    document.getElementById('sentence-current').textContent = currentSentenceIndex + 1;
+    document.getElementById('btn-prev-sentence').disabled = (currentSentenceIndex <= 0);
+    document.getElementById('btn-next-sentence').disabled = (currentSentenceIndex >= paragraphSentences.length - 1);
+}
