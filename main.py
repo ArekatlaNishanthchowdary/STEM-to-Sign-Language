@@ -4,6 +4,8 @@ import ssl
 import re
 import datetime
 import urllib.request
+import torch
+
 
 ssl._create_default_https_context = ssl._create_unverified_context
 
@@ -41,6 +43,11 @@ def allowed_file(filename):
 # ============================================================
 GROQ_MODEL = "llama-3.3-70b-versatile"
 groq_client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+
+# GPU Status Check
+cuda_available = torch.cuda.is_available()
+device_name = torch.cuda.get_device_name(0) if cuda_available else "CPU (Fallback)"
+print(f"[ACCELERATION] CUDA Active: {cuda_available} | Device: {device_name}")
 
 print(f"[MODEL] Using Groq model: {GROQ_MODEL}")
 

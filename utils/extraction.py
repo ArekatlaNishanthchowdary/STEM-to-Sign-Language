@@ -64,7 +64,7 @@ def extract_image(file_path):
     """Extract text from an image using EasyOCR."""
     import easyocr
     try:
-        reader = easyocr.Reader(['en'], gpu=False, verbose=False)
+        reader = easyocr.Reader(['en'], gpu=True, verbose=False)
         results = reader.readtext(file_path, detail=0)
         return " ".join(results)
     except Exception as e:
