@@ -820,7 +820,7 @@ def index():
     final_words_dict = {}
 
     text = request.form.get('text')
-    language = request.form.get('language', 'isl')
+    language = request.form.get('language', 'asl')
 
     print(f"\n{'='*50}")
     print(f"Input: {text} | Language: {language}")
@@ -998,7 +998,7 @@ def ask_doubt():
 
     data = request.get_json()
     question = data.get('question', '').strip()
-    language = data.get('language', 'isl')
+    language = data.get('language', 'asl')
 
     if not question:
         return jsonify({"error": "No question provided"}), 400
@@ -1112,7 +1112,7 @@ def export_lesson():
     lesson = {
         "title": data.get('title', 'Untitled Lesson'),
         "input_text": data.get('input_text', ''),
-        "language": data.get('language', 'isl'),
+        "language": data.get('language', 'asl'),
         "gloss_display": data.get('gloss_display', ''),
         "structured": data.get('structured', None),
         "sigml_sequence": data.get('sigml_sequence', []),
@@ -1129,7 +1129,7 @@ def explain_formula():
     data = request.get_json()
     formula_input = data.get('formula', '').strip()
     formula_key = data.get('formula_key', '').strip()
-    language = data.get('language', 'isl')
+    language = data.get('language', 'asl')
 
     if not formula_input:
         return jsonify({"error": "No formula provided"}), 400

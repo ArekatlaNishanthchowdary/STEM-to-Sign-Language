@@ -2,7 +2,7 @@
 // SignBridge — Full Script (All 6 Features)
 // ============================================
 
-var currentLanguage = 'isl';
+var currentLanguage = 'asl';
 var wordArray = [];
 var playbackSpeed = 1;
 var isPaused = false;
