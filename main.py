@@ -176,6 +176,7 @@ SYNONYM_MAP = {
     "TIGHT": "TIGHT", "NARROW": "TIGHT",
     "UNDER": "UNDER", "BELOW": "UNDER", "BENEATH": "UNDER",
     "CIRCLE": "CIRCLE", "ROUND": "CIRCLE", "SPHERE": "CIRCLE",
+    "SQUARE": "POWER TWO", "CUBE": "POWER THREE",
 }
 
 # ============================================================
@@ -200,7 +201,7 @@ MATH_OPS = {
     '≥': 'GREATER EQUAL', '≤': 'LESS EQUAL',
     '^': 'POWER', '√': 'SQUARE ROOT', 'π': 'PI',
     '²': 'SQUARE', '³': 'CUBE',
-    '(': 'OPEN PAREN', ')': 'CLOSE PAREN',
+    '(': 'OPEN BRACKET', ')': 'CLOSE BRACKET',
     '∫': 'INTEGRAL', '∑': 'SUMMATION', 'Σ': 'SUMMATION',
     'Δ': 'DELTA', '∞': 'INFINITY', '∂': 'PARTIAL',
     '→': 'YIELDS', '⇌': 'REVERSIBLE', '↔': 'EQUILIBRIUM',
@@ -378,17 +379,54 @@ FORMULA_CONTEXT = {
         'meaning': 'Acceleration is how quickly speed changes over time.',
         'example': 'Sports car reaches 100 km/h in 3 seconds — very high acceleration.',
     },
+    'h2o+co2': {
+        'name': 'Photosynthesis Components',
+        'variables': {'H2O': 'Water (from roots)', 'CO2': 'Carbon Dioxide (from air)'},
+        'meaning': 'Water and Carbon Dioxide react with sunlight to make food for plants.',
+        'example': 'A leaf taking in air and water to stay green.',
+    },
+    '(a+b)2': {
+        'name': 'Algebraic Identity (Square of Sum)',
+        'variables': {'A': 'First number', 'B': 'Second number', '2': 'Power of two (square)'},
+        'meaning': 'The square of a sum equals the square of the first plus two times the product plus the square of the second.',
+        'example': 'If a=2 and b=3, then (2+3)² = 2² + 2(2)(3) + 3² which is 25.',
+    },
 }
 
 # ============================================================
 # STEM CONCEPTS — Complex Terms that need Explanation
 # ============================================================
 STEM_CONCEPTS = {
+    # Biology & Environment
     "photosynthesis", "mitosis", "meiosis", "global warming", "greenhouse effect",
-    "gravity", "evolution", "dna", "rna", "atom", "molecule", "cell", "newton's laws",
+    "evolution", "dna", "rna", "atom", "molecule", "cell", "newton's laws",
     "periodic table", "acid rain", "refraction", "reflection", "osmosis", "diffusion",
-    "electricity", "magnetism", "friction", "energy", "matter", "ecosystem", "food chain",
-    "respiration", "evaporation", "condensation", "precipitation"
+    "ecosystem", "food chain", "respiration", "evaporation", "condensation", "precipitation",
+    "chlorophyll", "organelle", "prokaryote", "eukaryote", "genetics", "mutation", 
+    "habitat", "biodiversity", "pollination", "digestion", "circulation", "nervous system",
+    "blood", "heart", "oxygen", "carbon", "nature", "science", "biology", "animal", "plant",
+    
+    # Physics & Astronomy
+    "gravity", "electricity", "magnetism", "friction", "energy", "matter",
+    "acceleration", "velocity", "inertia", "momentum", "torque", "centripetal",
+    "electromagnetic", "spectrum", "quantum", "relativity", "conduction", "convection", 
+    "radiation", "supernova", "black hole", "galaxy", "nebula", "orbit", "telescope",
+    "wavelength", "frequency", "amplitude", "resonance", "entropy", "thermodynamics",
+    "physics", "light", "sound", "heat", "force", "power", "motion",
+    
+    # Chemistry
+    "isotope", "ion", "catalyst", "covalent", "ionic", "metallic", "bond",
+    "solubility", "titration", "distillation", "chromatography", "exothermic", "endothermic",
+    "oxidation", "reduction", "alkali", "halogen", "noble gas", "polymer", "isomer",
+    "sublimation", "viscosity", "electrolysis", "stoichiometry", "suspension", "colloid",
+    "chemistry", "reaction", "acid", "base", "salt", "element", "compound", "mixture",
+    
+    # Math & General
+    "calculus", "trigonometry", "geometry", "algebra", "statistics", "probability",
+    "derivative", "integral", "theorem", "logarithm", "matrix", "vector", "scalar",
+    "algorithm", "circuit", "robotics", "nanotechnology", "semiconductor", "pigeonhole",
+    "fractal", "fibonacci", "pythagorean", "differential", "sine", "cosine", "math",
+    "formula", "equation", "logic", "reasoning"
 }
 
 # Units mapping
@@ -800,6 +838,7 @@ def index():
         expansion = CHEM_FORMULAS[text_key]
         gloss_words = [w.upper() for w in expansion.split() if w.strip()]
         is_formula = True
+        formula_key = text_key
         print(f"[CHEM BYPASS] '{text_clean}' -> {gloss_words}")
 
     else:
@@ -822,21 +861,38 @@ def index():
                 break
 
         if not physics_matched:
-            # Step 0c: Check if input contains complex STEM concepts
-            text_lower = text_clean.lower()
+            # Step 0c: Check if input contains complex STEM concepts or is a question
+            text_lower = text_clean.lower().strip()
             concept_found = None
             for concept in STEM_CONCEPTS:
                 if concept in text_lower:
                     concept_found = concept
                     break
             
-            if concept_found:
-                is_formula = True  # Enables "Explain This" button on frontend
-                formula_key = concept_found
-                print(f"[STEM CONCEPT] Found: {formula_key}")
+            # Step 0d: Heuristic for general STEM questions
+            is_question = text_lower.startswith(('what', 'how', 'explain', 'tell me about', 'define'))
+            is_algebra = any(char in text_clean for char in '()+-*/=^²³×÷')
+            
+            if concept_found or is_question:
+                is_formula = True
+                formula_key = concept_found if concept_found else text_lower
+            
+            if is_algebra:
+                is_formula = True
+                # Set specific keys for known complex formulas if not already set by concepts
+                if not formula_key:
+                    if '(a+b)2' in text_key: formula_key = '(a+b)2'
+                    elif 'h2o' in text_key and 'co2' in text_key: formula_key = 'h2o+co2'
 
-            # Always translate via LLM when not a chem/physics formula bypass
-            gloss_words = llm_to_gloss(text_clean, language)
+            if is_formula and is_algebra and len(text_clean.split()) < 10:
+                # Bypass LLM for short pure formulas to preserve exact notation
+                expansion = preprocess_math(text_clean)
+                gloss_words = [w.upper() for w in expansion.split() if w.strip()]
+                print(f"[ALGEBRA BYPASS] '{text_clean}' -> {gloss_words}")
+            else:
+                # Preprocess math characters before sending to LLM to preserve operators
+                text_to_llm = preprocess_math(text_clean)
+                gloss_words = llm_to_gloss(text_to_llm, language)
 
     # Step 2: Match gloss words to SIGML files
     sigml_sequence = match_to_sigml(gloss_words)
