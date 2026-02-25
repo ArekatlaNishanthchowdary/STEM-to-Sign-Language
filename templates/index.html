@@ -550,6 +550,33 @@
             <button class="lightbox-arrow lightbox-next" onclick="navigateLightbox(1, event)">&#8250;</button>
         </div>
     </div>
+    <!-- Feature Tour FAB -->
+    <button id="btn-tour" class="tour-fab" onclick="startTour()" title="Take a Feature Tour">
+        <span class="tour-fab-icon">🎓</span>
+        <span class="tour-fab-text">Take a Tour</span>
+    </button>
+
+    <!-- Tour Overlay & Tooltip -->
+    <div id="tour-overlay" class="tour-overlay" onclick="endTour()"></div>
+    <div id="tour-spotlight" class="tour-spotlight"></div>
+    <div id="tour-tooltip" class="tour-tooltip">
+        <div class="tour-tooltip-content">
+            <h3 id="tour-title">Tour Title</h3>
+            <p id="tour-text">Tour description goes here...</p>
+        </div>
+        <div class="tour-footer">
+            <span id="tour-step-counter" class="tour-step-counter">1/10</span>
+            <div class="tour-nav">
+                <button id="btn-tour-skip" class="btn-tour-secondary" onclick="endTour()">Skip</button>
+                <div class="tour-main-nav">
+                    <button id="btn-tour-prev" class="btn-tour-secondary" onclick="prevTourStep()">Prev</button>
+                    <button id="btn-tour-next" class="btn-tour-primary" onclick="nextTourStep()">Next</button>
+                </div>
+            </div>
+        </div>
+        <div id="tour-arrow" class="tour-arrow"></div>
+    </div>
+
     <script type="text/javascript" src="{{ url_for('static', filename='js/script.js') }}?v=1.6"></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {

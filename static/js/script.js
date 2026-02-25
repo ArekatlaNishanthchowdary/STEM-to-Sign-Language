@@ -1731,3 +1731,249 @@ function updateSentenceNav() {
     document.getElementById('btn-prev-sentence').disabled = (currentSentenceIndex <= 0);
     document.getElementById('btn-next-sentence').disabled = (currentSentenceIndex >= paragraphSentences.length - 1);
 }
+
+// ============================================
+// Feature Tour Walkthrough Logic
+// ============================================
+
+var currentTourStep = 0;
+const tourSteps = [
+    {
+        selector: '.app-header',
+        title: 'Welcome to SignBridge! 🤟',
+        text: 'The most advanced STEM-to-Sign Language translator. Let\'s show you around!',
+        pos: 'bottom'
+    },
+    {
+        selector: '.language-selector',
+        title: 'Change Language 🇮🇳🇺🇸',
+        text: 'Toggle between Indian Sign Language (ISL) and American Sign Language (ASL) grammar.',
+        pos: 'bottom'
+    },
+    {
+        selector: '.input-mode-tabs',
+        title: 'Choose Input Mode ✏️',
+        text: 'You can type text, upload files, ask questions, or take a learning quiz.',
+        pos: 'bottom'
+    },
+    {
+        selector: '#text-input-section',
+        title: 'STEM Input 🔢',
+        text: 'Enter complex STEM content like "Newton\'s Second Law", "H2O + CO2", or "(a+b)²". We handle them all!',
+        pos: 'bottom',
+        mode: 'text'
+    },
+    {
+        selector: '#upload-section',
+        title: 'File Upload 📄',
+        text: 'Upload PDF, DOCX, or images. We extract the STEM text and translate it for you!',
+        pos: 'bottom',
+        mode: 'upload'
+    },
+    {
+        selector: '#doubt-section',
+        title: 'Ask a Doubt ❓',
+        text: 'Have a question? Ask our AI and get a 10-year-old friendly explanation in sign language.',
+        pos: 'bottom',
+        mode: 'doubt'
+    },
+    {
+        selector: '#quiz-section',
+        title: 'Sign Learning Quiz 🎯',
+        text: 'A full immersive experience! Learn signs by category and then test your skills.',
+        pos: 'top',
+        mode: 'quiz'
+    },
+    {
+        selector: '.output-section',
+        title: 'Gloss Translation 📝',
+        text: 'See the translated sign language gloss here. We detect STEM concepts automatically!',
+        pos: 'left'
+    },
+    {
+        selector: '.avatar-card',
+        title: '3D Sign Avatar 🤖',
+        text: 'Watch our photorealistic avatar perform your translation in real-time with smooth animations.',
+        pos: 'left'
+    },
+    {
+        selector: '.playback-controls',
+        title: 'Control Animations ⏩',
+        text: 'Adjust the speed, pause, or replay any sign to learn at your own pace.',
+        pos: 'top'
+    },
+    {
+        selector: '.topic-mode-section',
+        title: 'Smart Topic Mode 📖',
+        text: 'Turn this on to automatically split complex STEM text into Definition, Formula, and Examples.',
+        pos: 'top'
+    },
+    {
+        selector: '.action-buttons',
+        title: 'Save & Track 📊',
+        text: 'Save your lessons, view history, or check your performance stats here.',
+        pos: 'top'
+    },
+    {
+        selector: '#btn-tour',
+        title: 'Finished! 🎓',
+        text: 'You\'re all set! You can restart this tour anytime by clicking this button. Happy learning!',
+        pos: 'left'
+    }
+];
+
+function startTour() {
+    currentTourStep = 0;
+    var overlay = document.getElementById('tour-overlay');
+    var spotlight = document.getElementById('tour-spotlight');
+    var tooltip = document.getElementById('tour-tooltip');
+
+    overlay.style.display = 'block';
+    spotlight.style.display = 'block';
+    tooltip.style.display = 'block';
+    tooltip.style.opacity = '0';
+
+    // Switch to text mode initially
+    switchInputMode('text');
+
+    overlay.style.transition = 'opacity 0.4s ease';
+    overlay.style.opacity = '0';
+    setTimeout(function () { overlay.style.opacity = '1'; }, 10);
+
+    setTimeout(function () { showTourStep(0); }, 200);
+}
+
+function showTourStep(index) {
+    const step = tourSteps[index];
+
+    // Switch mode if needed, then wait for DOM to update
+    if (step.mode) {
+        switchInputMode(step.mode);
+    }
+
+    // Update tooltip content immediately
+    document.getElementById('tour-title').innerText = step.title;
+    document.getElementById('tour-text').innerText = step.text;
+    document.getElementById('tour-step-counter').innerText = `${index + 1} / ${tourSteps.length}`;
+    document.getElementById('btn-tour-prev').style.visibility = index === 0 ? 'hidden' : 'visible';
+    document.getElementById('btn-tour-next').innerText = index === tourSteps.length - 1 ? 'Finish' : 'Next';
+
+    // Wait for mode switch + scroll to settle, then position
+    setTimeout(function () {
+        const el = document.querySelector(step.selector);
+        if (!el) {
+            console.error('Tour element not found:', step.selector);
+            return;
+        }
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        setTimeout(function () { positionTourSpotlight(el, step.pos); }, 350);
+    }, 120);
+}
+
+function positionTourSpotlight(targetEl, pos) {
+    var spotlight = document.getElementById('tour-spotlight');
+    var tooltip = document.getElementById('tour-tooltip');
+    var rect = targetEl.getBoundingClientRect();
+    var padding = 10;
+
+    // Position spotlight exactly over the element (viewport-relative = fixed position)
+    spotlight.style.top = (rect.top - padding) + 'px';
+    spotlight.style.left = (rect.left - padding) + 'px';
+    spotlight.style.width = (rect.width + padding * 2) + 'px';
+    spotlight.style.height = (rect.height + padding * 2) + 'px';
+
+    // Now position the tooltip next to the spotlight
+    tooltip.setAttribute('data-pos', pos);
+    var tw = tooltip.offsetWidth || 320;
+    var th = tooltip.offsetHeight || 200;
+    var vw = window.innerWidth;
+    var vh = window.innerHeight;
+    var GAP = 20;
+    var toolTop, toolLeft;
+
+    if (pos === 'bottom') {
+        toolTop = rect.bottom + GAP;
+        toolLeft = rect.left + rect.width / 2 - tw / 2;
+    } else if (pos === 'top') {
+        toolTop = rect.top - th - GAP;
+        toolLeft = rect.left + rect.width / 2 - tw / 2;
+    } else if (pos === 'left') {
+        toolTop = rect.top + rect.height / 2 - th / 2;
+        toolLeft = rect.left - tw - GAP;
+    } else { // right
+        toolTop = rect.top + rect.height / 2 - th / 2;
+        toolLeft = rect.right + GAP;
+    }
+
+    // Smart boundary clamping
+    if (toolLeft < 10) toolLeft = 10;
+    if (toolLeft + tw > vw - 10) toolLeft = vw - tw - 10;
+    if (toolTop < 10) toolTop = 10;
+    if (toolTop + th > vh - 10) toolTop = vh - th - 10;
+
+    tooltip.style.position = 'fixed';
+    tooltip.style.top = toolTop + 'px';
+    tooltip.style.left = toolLeft + 'px';
+
+    // Animate tooltip in
+    tooltip.style.opacity = '0';
+    tooltip.style.transform = 'translateY(12px)';
+    tooltip.style.transition = 'opacity 0.4s ease, transform 0.4s ease';
+    requestAnimationFrame(function () {
+        tooltip.style.opacity = '1';
+        tooltip.style.transform = 'translateY(0)';
+    });
+}
+
+function nextTourStep() {
+    if (currentTourStep < tourSteps.length - 1) {
+        currentTourStep++;
+        showTourStep(currentTourStep);
+    } else {
+        endTour();
+    }
+}
+
+function prevTourStep() {
+    if (currentTourStep > 0) {
+        currentTourStep--;
+        showTourStep(currentTourStep);
+    }
+}
+
+function endTour() {
+    var overlay = document.getElementById('tour-overlay');
+    var spotlight = document.getElementById('tour-spotlight');
+    var tooltip = document.getElementById('tour-tooltip');
+
+    // Fade out
+    overlay.style.transition = 'opacity 0.3s ease';
+    spotlight.style.transition = 'opacity 0.3s ease';
+    tooltip.style.transition = 'opacity 0.3s ease';
+    overlay.style.opacity = '0';
+    spotlight.style.opacity = '0';
+    tooltip.style.opacity = '0';
+
+    // Hide & reset after animation
+    setTimeout(function () {
+        overlay.style.display = 'none';
+        spotlight.style.display = 'none';
+        tooltip.style.display = 'none';
+        // Reset inline styles so they're clean for next tour
+        overlay.style.opacity = '';
+        spotlight.style.opacity = '';
+        tooltip.style.opacity = '';
+        tooltip.style.transform = '';
+    }, 350);
+
+    // Restore default input mode
+    switchInputMode('text');
+}
+
+// Global escape key listener for tour
+document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') {
+        endTour();
+    }
+});
+
